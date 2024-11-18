@@ -1,4 +1,4 @@
-<h1 align="center">Hoi, wij zijn Sharona,a Yulisa</h1>
+<h1 align="center">Hoi, wij zijn Sharona,a Yulisa, Yoav...</h1>
 <h3 align="center">Wij zijn het SteamTeam: AAAnpassen email bij how to reach me </h3>
 
 - 🔭 Wij werken momenteel aan **Steam**
