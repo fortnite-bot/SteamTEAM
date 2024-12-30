@@ -1,6 +1,6 @@
 import json
 
-with open('C:\\Users\\Sharo\\Downloads\\steam.json', 'r') as f:
+with open('./steam.json', 'r') as f:
     data = json.load(f)
 
 # Functie om het gemiddelde te berekenen
