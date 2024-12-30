@@ -5,9 +5,142 @@ import numpy as np
 import psycopg2
 from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label
 from PIL import Image, ImageTk  # Voor afbeeldingen
-from modules.beschrijvende import beschrijvende_statistieken
-from modules.voorspellende import voorspellende_analyse
+from beschrijvende import beschrijvende_statistieken
+from voorspellende import voorspellende_analyse
+from win10toast import ToastNotifier
+import requests
+from datetime import datetime
+import ctypes
 
+now = datetime.now()
+
+current_time = now.strftime("%H:%M")
+"""
+ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
+
+Logging: Playtime (local + api), Username / Steamid, Email van selected family members, settings.
+
+Notifications: Toast
+
+Username / Steamid: Memory read: "steam.exe"+0009D1D0, offset: 1C
+""" 
+
+def read_username():
+    # Load the DLL using windll
+    steam_exe = ctypes.windll.steam.exe
+
+    # Calculate the memory address
+    base_address = 0x0009D1D0 + 0x001C
+
+    # Read the memory value (assuming 4 bytes)
+    memory_value = steam_exe.read_process_memory(base_address, 17)
+
+    # Print the result
+    print(f"Memory read at {hex(base_address)}:")
+    print(f"Value: {memory_value.decode('utf-8', errors='ignore')}")
+    print(f"Type: {type(memory_value)}")
+
+def start_db():
+    # Set up session with custom user agent
+    session = requests.Session()
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'})
+
+    # First request to get token
+    token_url = "https://login.microsoftonline.com/98932909-9a5a-4d18-ace4-7236b5b5e11d/oauth2/v2.0/token"
+    data = {
+        "client_id": "c44b4083-3bb0-49c1-b47d-974e53cbdf3c",
+        "scope": "openid profile offline_access",
+        "code": "1.AQIACSmTmFqaGE2s5HI2tbXhHYNAS8SwO8FJtH2XTlPL3zwCAJcCAA.AgABBAIAAADW6jl31mB3T7ugrWTT8pFeAwDs_wUA9P8Lxrffir5eU1jYrZTsLVNhp3IhICIRE6_IhEh_Ox5JG420NJchQvYsiBEIPEAHQhrKf8BbTYa615E8Bn9YnmXgbRanEUhHw5cpm7ahiw5symPkUrlVeVOUS1eM-YOhIzXRPRuPhH3hxLVP5rHIfSp120koqA0rqgsgLcLavYVzZYKLW9ORgsvkHUcZRskqe5s3nclv7ziLd2zk0bLkQhsZ0Y32km9adT1VpnTJHr7qfarFoaDMBzysRN6VbOYDD4yH5jPmP2X6ggM7huw82vSwR3vCcTSOzNM4-eNO9NVIJgU-6XVz1l6YtBz-DsdSjCacQHgHNG3IOPvWAcTX8OLIIqafWJMD-6f1S_HAfJGgg8kKSfwLsusYin5zuQUnx1JlgB4EV6vmELYlHDCRm_PBbmOXwLbl0OKFVZmgNEN-NEOCEzt4G2Ci_JdkGFtBVxSauoSyLpMN1ykP8qkPImLB-H8MNLMpPv_o_cs8-neIOjWdstO-FUSvMokKd-yWmk8Td91CH5dc7C4E-A_82NAwfKZO5qu1GFZDCyPmatKcIqkGWhoFSCljGnI7zsRMf4dr5xdkU0-I9fZm75oFYfmYzWm948qKJ_ry0ZY1KdmAhJBMWpSNQJPv6WPPo2kF3Wjpdx7j29l6QvXZR7ge9l4tHuyxrd8IhkkbAWjELvK6wCTaK1FZmjzf5dSk0aW2BT1oeCPLNWHUHz-7JcKbGrFlWhI3BXbUlXK6oNyfEpLQSk5KN64QEnw",
+        "x-client-SKU": "msal.js.browser",
+        "x-client-VER": "2.37.0",
+        "x-ms-lib-capability": "retry-after, h429",
+        "x-client-current-telemetry": "5|866,0,,,,||,|&",
+        "x-client-last-telemetry": "5||0||0,0",
+        "grant_type": "authorization_code",
+        "client_info": "1",
+        "client-request-id": "b0c0589c-5887-4a08-a142-4ba6551245bb"
+    }
+
+    response = session.post(token_url, data=data)
+
+    # Extract token from response
+    access_token = response.json()['access_token']
+    refresh_token = response.json()['refresh_token']
+
+    # Second request to start VM
+    start_vm_url = "https://management.azure.com/subscriptions/3423a52d-b680-4bea-901b-1317e5a45bb1/resourceGroups/SteamTeam/providers/Microsoft.Compute/virtualMachines/SteamTeam-DB-HST/start?api-version=2024-03-01"
+
+    headers = {
+        "x-ms-client-session-id": "06900540aaaa49e68e27e201ba6c879e",
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = session.post(start_vm_url, headers=headers)
+
+def ai(input_message):
+     # Prompt the user for input
+    
+    # Set up the API request
+    url = "https://www.promptpal.net/api/chat-gpt-no-stream"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "model": "gpt-4o",
+        "messages": [
+            {
+                "role": "user",
+                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe:" + input_message
+            }
+        ],
+        "max_completion_tokens": 128000
+    }
+
+    try:
+        # Send the POST request
+        response = requests.post(url, headers=headers, json=data)
+        
+        # Check if the request was successful
+        response.raise_for_status()
+
+        # Parse the JSON response
+        data = response.json()
+
+        # Extract and log the response text
+        response_text = data.get('response', '')
+        if not str(response_text).endswith('.exe'):
+            return 'null.exe'
+        return response_text
+    except requests.exceptions.RequestException as e:
+        print("An error occurred:", str(e))
+
+playtime = 0 #get from api
+limit = 2 #get from db, default = 2, minimum = 0.5?
+game = ''
+begin_downtime = 0
+end_downtime = 0
+if game != '': 
+    game = ai(game)
+ 
+def close_game(game):
+    os.system(f'taskkill /f /im {game}')
+
+def alerts():
+    
+    global playtime, limit, current_time
+    n = ToastNotifier()
+    if playtime < int(limit) - 2: 
+        n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Dont forget to drink water and stretch", duration = 10)
+    elif playtime < int(limit) - 1:
+        n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Dont forget to drink water and stretch", duration = 10)
+    elif playtime == int(limit):
+        n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration = 10)
+        close_game(f'{game}')
+    
+    if current_time >= begin_downtime and current_time <= end_downtime:
+            close_game(f'{game}')
+
+alerts()
 # Database configuratie
 DB_CONFIG = {
     "dbname": "SteamTeam",
@@ -19,7 +152,7 @@ DB_CONFIG = {
 
 # Dynamisch het bestandspad bepalen
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, 'Data', 'steam.json')
+DATA_PATH = os.path.join(BASE_DIR, 'steam.json')
 README_PATH = os.path.join(BASE_DIR, 'README.md')
 
 # Controleer of de vereiste bestanden bestaan
@@ -29,12 +162,17 @@ if not os.path.exists(README_PATH):
     raise FileNotFoundError(f"README.md bestand niet gevonden: {README_PATH}")
 
 # Functie om databaseverbinding te maken
+retry = False
 def get_db_connection():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         return conn
     except Exception as e:
         print(f"Fout bij het verbinden met de database: {e}")
+        start_db()
+        if not retry:
+            retry = True 
+            get_db_connection()
         return None
 
 # Functie om de database voor te bereiden
@@ -154,7 +292,7 @@ def show_voorspellende_analyse():
         text.pack(fill="x", padx=10, pady=10)
 
         # Voeg de afbeelding toe
-        IMAGE_PATH = r"C:\Users\w_kar\PycharmProjects\SteamProject\voorspellende_analyse_plot.png"
+        IMAGE_PATH = r"C:\\Users\\w_kar\\PycharmProjects\\SteamProject\\voorspellende_analyse_plot.png"
         img = Image.open(IMAGE_PATH)
         img = img.resize((600, 300))  # Zonder ANTIALIAS
         img = ImageTk.PhotoImage(img)
