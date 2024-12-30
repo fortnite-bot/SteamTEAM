@@ -26,19 +26,40 @@ Username / Steamid: Memory read: "steam.exe"+0009D1D0, offset: 1C
 """ 
 
 def read_username():
-    # Load the DLL using windll
-    steam_exe = ctypes.windll.steam.exe
+#nog idee nodig op hoe we dit gaan doen
+#iteratie over ieder memory address 
+    import pymeow as pm
+    import time
 
-    # Calculate the memory address
-    base_address = 0x0009D1D0 + 0x001C
+    def find_string_in_memory(target_string):
+        process = pm.process_by_name("steam.exe")
+        
+        if not process:
+            print("Steam.exe not found!")
+            return None
+        
+        address = 0
+        start_time = time.time()
+        
+        while True:
+            data = process.read_bytes(address, 4096)
+            
+            if target_string in data.decode('utf-8', errors='ignore'):
+                print(f"Found '{target_string}' at address: {address}")
+                return address
+            
+            address += 4096
+            
+            if time.time() > start_time + 60:
+                break
+        
+        print("Target string not found within the scanned memory.")
+        return None
 
-    # Read the memory value (assuming 4 bytes)
-    memory_value = steam_exe.read_process_memory(base_address, 17)
+    # Usage example
+    target_string = "Account Details:"
+    result = find_string_in_memory(target_string)
 
-    # Print the result
-    print(f"Memory read at {hex(base_address)}:")
-    print(f"Value: {memory_value.decode('utf-8', errors='ignore')}")
-    print(f"Type: {type(memory_value)}")
 
 def start_db():
     # Set up session with custom user agent
