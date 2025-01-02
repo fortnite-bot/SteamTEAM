@@ -17,12 +17,21 @@ now = datetime.now()
 current_time = now.strftime("%H:%M")
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
+TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
 
-Logging: Playtime (local + api), Username / Steamid, Email van selected family members, settings.
+Logging: Playtime (api), Username / Steamid, Email van selected family members, settings. (logging betekent sla deze data op in de database)
 
 Notifications: Toast
 
 Username / Steamid: Memory read: "steam.exe"+0009D1D0, offset: 1C
+read_username mag wel verwijderd worden, is te veel moeite / werk. Zoek andere manier om Username / Steamid te krijgen.
+
+Zorg ervoor dat alle data uit de Steam-API komt en niet uit steam.json
+
+Ook moet start_db geupdate worden met de gegevens van Walid
+
+aan de functie AI niet zitten, werkt goed genoeg op het moment. (soms geeft het "sorry ik kan dat niet doen" dus als je dat kan fixen dan sure maar voor de rest niets aanpassen)
+
 """ 
 
 def read_username():
