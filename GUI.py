@@ -32,6 +32,12 @@ Ook moet start_db geupdate worden met de gegevens van Walid
 
 aan de functie AI niet zitten, werkt goed genoeg op het moment. (soms geeft het "sorry ik kan dat niet doen" dus als je dat kan fixen dan sure maar voor de rest niets aanpassen)
 
+de AI data moet ook nog goed uit de json / api gehaald worden en de data dan in dit dashboard
+
+BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken met links naar de documenten ofz)
+
+Als je niet weet hoe iets van dit moet, bel me op whatsapp
+
 """ 
 
 def read_username():
