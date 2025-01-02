@@ -1,6 +1,57 @@
 import machine
 import time
 import neopixel
+import network
+from time import sleep
+import urequests
+import time
+
+ssid = ''
+password = ''
+
+
+def make_request(url):
+    try:
+        response = urequests.get(url)        
+        # Print first few lines of response content
+        print("\nFirst few lines of response:")
+        print(response.text[:200])
+        
+    except Exception as e:
+        print(f"Error occurred: {e}")
+
+
+def ConnectWiFi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(ssid, password)
+    
+    max_wait = 10
+    while max_wait > 0:
+        if wlan.status() < 0 or wlan.status() >= 3:
+            break
+        max_wait -= 1
+        print('waiting for connection...')
+        sleep(1)
+    
+    if wlan.status() != 3:
+        raise RuntimeError('network connection failed')
+    else:
+        print('connected')
+        status = wlan.ifconfig()
+        print('ip address:', status[0])
+# URL to request
+        url = "http://www.example.com"
+
+        # Make the request
+        make_request(url)
+
+        # Wait a bit before exiting
+        time.sleep(5)
+
+    return wlan
+
+wifi = ConnectWiFi()
 
 # === Configuration ===
 
