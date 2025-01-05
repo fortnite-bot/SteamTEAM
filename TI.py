@@ -8,7 +8,7 @@ import time
 
 ssid = ''
 password = ''
-
+#remove all prints other than api response
 
 def make_request(url):
     try:
