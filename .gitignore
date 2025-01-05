@@ -67,8 +67,7 @@ instance/
 
 # Scrapy stuff:
 .scrapy
-steamkey.txt
-db.txt
+db.json
 
 # Sphinx documentation
 docs/_build/
