@@ -6,12 +6,23 @@ def beschrijvende_statistieken(data_path):
     """
     try:
         # Laad de data
-        with open(data_path, 'r') as f:
-            data = json.load(f)
+        data = data_path
 
-        # Extract data
-        prices = [game.get("price", 0) for game in data if isinstance(game.get("price", 0), (int, float))]
-        playtimes = [game.get("average_playtime", 0) for game in data if isinstance(game.get("average_playtime", 0), (int, float))]
+        # Filter gegevens (prijs en gemiddelde speeltijd)
+        prices = []
+        for d in data:
+            d = list(d)
+            price = d[2]
+            if isinstance(price, (int, float)):
+                prices.append(price)
+
+        playtimes = []
+        for d in data:
+            d = list(d)
+            average_playtime = d[3]
+            if isinstance(average_playtime, (int, float)):
+                playtimes.append(average_playtime)
+        
 
         # Bereken statistieken
         beschrijvende_resultaten = {

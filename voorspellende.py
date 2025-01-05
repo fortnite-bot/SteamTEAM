@@ -9,13 +9,23 @@ def voorspellende_analyse(data_path):
     :return: String met resultaten van de analyse
     """
     try:
-        # Laad de data
-        with open(data_path, 'r') as file:
-            data = json.load(file)
+    # Laad de data
+        data = data_path
 
         # Filter gegevens (prijs en gemiddelde speeltijd)
-        prices = [d.get('price', 0) for d in data if isinstance(d.get('price', 0), (int, float))]
-        average_playtimes = [d.get('average_playtime', 0) for d in data if isinstance(d.get('average_playtime', 0), (int, float))]
+        prices = []
+        for d in data:
+            d = list(d)
+            price = d[2]
+            if isinstance(price, (int, float)):
+                prices.append(price)
+
+        average_playtimes = []
+        for d in data:
+            d = list(d)
+            average_playtime = d[3]
+            if isinstance(average_playtime, (int, float)):
+                average_playtimes.append(average_playtime)
 
         if not prices or not average_playtimes:
             return "Geen geldige gegevens gevonden voor prijs en gemiddelde speeltijd."
@@ -51,7 +61,7 @@ def voorspellende_analyse(data_path):
         plt.title("Lineaire Regressie: Prijs vs Gemiddelde Speeltijd")
         plt.legend()
         plt.grid(True)
-        plt.savefig("voorspellende_analyse_plot.png")  # Sla de plot op als bestand
+        plt.savefig("./voorspellende_analyse_plot.png")  # Sla de plot op als bestand
         plt.close()
 
         # Bouw een resultaatstring
