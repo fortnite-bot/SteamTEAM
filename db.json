@@ -1,0 +1,7 @@
+{
+    "dbname": "SteamTeam",
+    "user": "postgres",
+    "password": "SteamTeam",
+    "host": "4.231.88.166",
+    "port": 5432
+}

@@ -16,12 +16,13 @@ import ctypes
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
 
+Filter response for playtime, do calculation for playtime, add to response the playtime, turn neopixel off or on, change that it doesnt turn on by default but only on response and only request response when serial port (or make web api to control game closure and do it from pico and no laptop needed / connect laptop to same api)
+
+gui.py splitsen in verschillende py files, ieder voor zn eigen functies. Pico alle requests en database calls laten handlen. gui.py ook echt alleen de gui zelf hebben. nog een py file voor het sluiten van de apps die connected is aan deze externe api.
+
 Logging: Playtime (api), Username / Steamid, Email van selected family members, settings. (logging betekent sla deze data op in de database)
 
-Notifications: Toast
-
-Username / Steamid: Memory read: "steam.exe"+0009D1D0, offset: 1C
-read_username mag wel verwijderd worden, is te veel moeite / werk. Zoek andere manier om Username / Steamid te krijgen.
+Notifications: Toast: done
 
 Zorg ervoor dat alle data uit de Steam-API komt en niet uit steam.json
 
@@ -35,6 +36,16 @@ BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken 
 
 Als je niet weet hoe iets van dit moet, bel me op whatsapp
 
+Steam api key van random guy op discord gevonden: ./steamkey.txt
+
+Zodat we geen gebruikersnaam hoeven te vragen en lekker origineel blijven, lijkt me een chrome extentie die checkt of je ingelogd bent een handige manier om de steamid te krijgen zonder dat de gebruiker het hoeft in te vullen.
+
+Ander idee: Gebruikersnaam uit systeem halen en dan met chrome extentie de steamid ophalen door de website te openen en gebruiker zijn account te laten kiezen en dan in de database zetten.
+
+https://steamcommunity.com/search/users/#text=yoav
+queryselector: .searchPersonaName: href.split('profiles/')[1] of location.href.split('profiles/')[1]
+
+Webserver met api calls als we pico gaan gebruiken als proxy.
 """ 
 def ai(input_message):
     # Prompt the user for input
@@ -49,7 +60,7 @@ def ai(input_message):
         "messages": [
             {
                 "role": "user",
-                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe:" + input_message
+                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe. Respond in json format but return it as text, so no markdown {\"response\":{\"executable\": \" FortniteClient-Win64-Shipping.exe\", \"name\": \"Fortnite\"}}" + input_message
             }
         ],
         "max_completion_tokens": 128000
@@ -66,21 +77,14 @@ def ai(input_message):
         data = response.json()
 
         # Extract and log the response text
-        response_text = data.get('response', '')
-        if not str(response_text).endswith('.exe'):
-            return 'null.exe'
+        response_text = data['response']['executable']
         return response_text
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print("An error occurred:", str(e))
 
 # Database configuratie
-DB_CONFIG = {
-    "dbname": "SteamTeam",
-    "user": "postgres",
-    "password": "SteamTeam",
-    "host": "4.231.88.166",
-    "port": 5432
-}
+with open("db.json") as f:
+    DB_CONFIG = json.load(f)
 
 # Functie om databaseverbinding te maken
 retry = False
@@ -309,8 +313,6 @@ center_frame.grid_columnconfigure(0, weight=1)
 center_frame.grid_columnconfigure(1, weight=1)
 center_frame.grid_columnconfigure(2, weight=1)
 
-# Database initialisatie
-initialize_database()
-
 # Main loop
 root.mainloop()
+
