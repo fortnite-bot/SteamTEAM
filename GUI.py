@@ -36,7 +36,7 @@ BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken 
 
 Als je niet weet hoe iets van dit moet, bel me op whatsapp
 
-Steam api key van random guy op discord gevonden: ./steamkey.txt
+Steam api key van random guy op discord gevonden: ./db.json
 
 Zodat we geen gebruikersnaam hoeven te vragen en lekker origineel blijven, lijkt me een chrome extentie die checkt of je ingelogd bent een handige manier om de steamid te krijgen zonder dat de gebruiker het hoeft in te vullen.
 
