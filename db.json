@@ -1,8 +1,0 @@
-{
-    "dbname": "SteamTeam",
-    "user": "postgres",
-    "password": "SteamTeam",
-    "host": "4.231.88.166",
-    "port": 5432,
-    "steamkey": "281C1716E751A37C4A73A7AAF53ADA1D"
-}
