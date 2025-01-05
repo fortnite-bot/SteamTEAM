@@ -12,8 +12,6 @@ import requests
 import time
 from datetime import datetime
 import ctypes
-
-
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
@@ -38,45 +36,8 @@ BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken 
 Als je niet weet hoe iets van dit moet, bel me op whatsapp
 
 """ 
-
-# def read_username():
-# #nog idee nodig op hoe we dit gaan doen
-# #iteratie over ieder memory address 
-#     import pymeow as pm
-#     import time
-
-#     def find_string_in_memory(target_string):
-#         process = pm.process_by_name("steam.exe")
-        
-#         if not process:
-#             print("Steam.exe not found!")
-#             return None
-        
-#         address = 0
-#         start_time = time.time()
-        
-#         while True:
-#             data = process.read_bytes(address, 4096)
-            
-#             if target_string in data.decode('utf-8', errors='ignore'):
-#                 print(f"Found '{target_string}' at address: {address}")
-#                 return address
-            
-#             address += 4096
-            
-#             if time.time() > start_time + 60:
-#                 break
-        
-#         print("Target string not found within the scanned memory.")
-#         return None
-
-#     # Usage example
-#     target_string = "Account Details:"
-#     result = find_string_in_memory(target_string)
-
-
 def ai(input_message):
-     # Prompt the user for input
+    # Prompt the user for input
     
     # Set up the API request
     url = "https://www.promptpal.net/api/chat-gpt-no-stream"
@@ -112,7 +73,6 @@ def ai(input_message):
     except requests.exceptions.RequestException as e:
         print("An error occurred:", str(e))
 
-
 # Database configuratie
 DB_CONFIG = {
     "dbname": "SteamTeam",
@@ -122,10 +82,10 @@ DB_CONFIG = {
     "port": 5432,
 }
 
-
 # Functie om databaseverbinding te maken
 retry = False
 def get_db_connection():
+    global retry
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         return conn
@@ -133,58 +93,31 @@ def get_db_connection():
         print(f"Fout bij het verbinden met de database: {e}")
         if not retry:
             retry = True 
-            get_db_connection()
+            return get_db_connection()
         return None
-
 
 # Functie om de database voor te bereiden
 def initialize_database():
     conn = get_db_connection()
     if conn:
-            try:
-                with conn.cursor() as cursor:
-                    # Maak tabel als deze nog niet bestaat
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS steam_data (
-                            id SERIAL PRIMARY KEY,
-                            name TEXT,
-                            price FLOAT,
-                            average_playtime INT,
-                            owners TEXT
-                        )
-                    """)
-                    conn.commit()
-                    print("Database succesvol geïnitialiseerd.")
-            except Exception as e:
-                print(f"Fout bij het initialiseren van de database: {e}")
-            finally:
-                conn.close()
-
-# # Functie om gegevens naar de database te importeren
-# def import_data_to_db():
-#     conn = get_db_connection()
-#     if conn:
-#         try:
-#             with open('./steam.json', 'r') as file:
-#                 data = json.load(file)
-
-#             with conn.cursor() as cursor:
-#                 for game in data:
-#                     cursor.execute("""
-#                         INSERT INTO steam_data (name, price, average_playtime, owners)
-#                         VALUES (%s, %s, %s, %s)
-#                     """, (
-#                         game.get('name', 'Onbekend'),
-#                         game.get('price', 0.0),
-#                         game.get('average_playtime', 0),
-#                         game.get('owners', 'Onbekend')
-#                     ))
-#                 conn.commit()
-#                 print("Data succesvol geïmporteerd in de database.")
-#         except Exception as e:
-#             print(f"Fout bij het importeren van data: {e}")
-#         finally:
-#             conn.close()
+        try:
+            with conn.cursor() as cursor:
+                # Maak tabel als deze nog niet bestaat
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS steam_data (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT,
+                        price FLOAT,
+                        average_playtime INT,
+                        owners TEXT
+                    )
+                """)
+                conn.commit()
+                print("Database succesvol geïnitialiseerd.")
+        except Exception as e:
+            print(f"Fout bij het initialiseren van de database: {e}")
+        finally:
+            conn.close()
 
 # Functie om gegevens uit de database op te halen
 def fetch_data_from_db():
@@ -200,8 +133,11 @@ def fetch_data_from_db():
             return []
         finally:
             conn.close()
-playtime = 0 #get from api
-limit = 2 #get from db, default = 2, minimum = 0.5?
+    else:
+        return []
+
+playtime = 0  # get from api
+limit = 2  # get from db, default = 2, minimum = 0.5?
 game = ''
 begin_downtime = 0
 end_downtime = 0
@@ -235,25 +171,25 @@ playtime, limit, begin_downtime, end_downtime, current_time = readplay()
 
 if game != '': 
     game = ai(game)
- 
+
 def close_game(game):
     os.system(f'taskkill /f /im {game}')
 
 def alerts():
-    
     global playtime, limit, current_time
     n = ToastNotifier()
     if playtime > 0:
         if playtime < int(limit) - 2: 
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Dont forget to drink water and stretch", duration = 10)
+            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
         elif playtime < int(limit) - 1:
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Dont forget to drink water and stretch", duration = 10)
+            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
         elif playtime == int(limit):
-            n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration = 10)
+            n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
             close_game(f'{game}')
         
-        if current_time >= begin_downtime and current_time <= end_downtime:
-                close_game(f'{game}')
+        if begin_downtime <= current_time <= end_downtime:
+            close_game(f'{game}')
+
 # Dynamisch het bestandspad bepalen
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = fetch_data_from_db()
@@ -313,13 +249,17 @@ def show_voorspellende_analyse():
 
         # Voeg de afbeelding toe
         IMAGE_PATH = "./voorspellende_analyse_plot.png"
-        img = Image.open(IMAGE_PATH)
-        img = img.resize((600, 300))  # Zonder ANTIALIAS
-        img = ImageTk.PhotoImage(img)
+        if os.path.exists(IMAGE_PATH):
+            img = Image.open(IMAGE_PATH)
+            img = img.resize((600, 300))  # Zonder ANTIALIAS
+            img = ImageTk.PhotoImage(img)
 
-        img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
-        img_label.image = img  # Houdt de referentie vast
-        img_label.pack(pady=20)
+            img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
+            img_label.image = img  # Houdt de referentie vast
+            img_label.pack(pady=20)
+        else:
+            label = Label(voorspellende_window, text="Afbeelding niet gevonden.", bg="#9b59b6", fg="white")
+            label.pack(pady=20)
 
     except Exception as e:
         print(f"Fout bij het tonen van voorspellende analyse: {e}")
@@ -327,7 +267,7 @@ def show_voorspellende_analyse():
 # GUI setup
 root = Tk()
 root.title("SteamTeam Dashboard")
-root.geometry("700x600")
+root.geometry("800x600")  # Increased width for better button placement
 root.configure(bg="#2c3e50")
 
 # Frame for layout
@@ -339,20 +279,58 @@ center_frame.pack(expand=True)
 
 # Title Label
 label_title = Label(center_frame, text="SteamTeam Dashboard", font=("Helvetica", 24, "bold"), bg="#2c3e50", fg="white", padx=10, pady=10)
-label_title.grid(row=0, column=0, columnspan=5, pady=20)
+label_title.grid(row=0, column=0, columnspan=3, pady=(0, 40))
 
-# # Buttons
-# btn_import_data = Button(center_frame, text="Importeer Data naar Database", command=import_data_to_db, bg="#e74c3c", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-# btn_import_data.grid(row=1, column=0, padx=10, pady=10)
+# Buttons
 
-btn_show_db = Button(center_frame, text="Bekijk Database Gegevens", command=show_database_data, bg="#f1c40f", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_show_db.grid(row=1, column=2, padx=10, pady=10)
+btn_show_db = Button(
+    center_frame,
+    text="Bekijk Database Gegevens",
+    command=show_database_data,
+    bg="#f1c40f",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=20,
+    pady=10
+)
 
-btn_beschrijvende = Button(center_frame, text="Beschrijvende Statistieken", command=show_beschrijvende_statistieken, bg="#1abc9c", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_beschrijvende.grid(row=2, column=0, padx=10, pady=10)
+btn_beschrijvende = Button(
+    center_frame,
+    text="Beschrijvende Statistieken",
+    command=show_beschrijvende_statistieken,
+    bg="#1abc9c",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=20,
+    pady=10
+)
 
-btn_voorspellende = Button(center_frame, text="Voorspellende Analyse", command=show_voorspellende_analyse, bg="#9b59b6", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_voorspellende.grid(row=2, column=2, padx=10, pady=10)
+btn_voorspellende = Button(
+    center_frame,
+    text="Voorspellende Analyse",
+    command=show_voorspellende_analyse,
+    bg="#9b59b6",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=20,
+    pady=10
+)
+
+# Arrange buttons in grid with padding
+btn_show_db.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+btn_beschrijvende.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+btn_voorspellende.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
+
+# Make the columns expand equally
+center_frame.grid_columnconfigure(0, weight=1)
+center_frame.grid_columnconfigure(1, weight=1)
+center_frame.grid_columnconfigure(2, weight=1)
 
 # Database initialisatie
 initialize_database()
