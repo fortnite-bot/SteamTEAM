@@ -79,7 +79,7 @@ DB_CONFIG = {
     "user": "postgres",
     "password": "SteamTeam",
     "host": "4.231.88.166",
-    "port": 5432,
+    "port": 5432
 }
 
 # Functie om databaseverbinding te maken
@@ -95,29 +95,6 @@ def get_db_connection():
             retry = True 
             return get_db_connection()
         return None
-
-# Functie om de database voor te bereiden
-def initialize_database():
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                # Maak tabel als deze nog niet bestaat
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS steam_data (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT,
-                        price FLOAT,
-                        average_playtime INT,
-                        owners TEXT
-                    )
-                """)
-                conn.commit()
-                print("Database succesvol geïnitialiseerd.")
-        except Exception as e:
-            print(f"Fout bij het initialiseren van de database: {e}")
-        finally:
-            conn.close()
 
 # Functie om gegevens uit de database op te halen
 def fetch_data_from_db():
