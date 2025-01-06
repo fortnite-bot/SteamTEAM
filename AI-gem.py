@@ -18,7 +18,7 @@ def calculate_median(numbers):
 
 
 # Calculate median of medians
-median_of_median_playtimes = calculate_median(median_playtimesa)
+median_of_median_playtimes = calculate_median(median_playtimes)
 
 # Print result
 print(f"De mediaan is: {median_of_median_playtimes}")
