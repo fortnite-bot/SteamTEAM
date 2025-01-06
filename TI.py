@@ -37,7 +37,7 @@ def ConnectWiFi():
     if wlan.status() != 3:
         raise RuntimeError('network connection failed')
     else:
-        print('connected')
+        print('connecteda')
         status = wlan.ifconfig()
         print('ip address:', status[0])
 # URL to request
