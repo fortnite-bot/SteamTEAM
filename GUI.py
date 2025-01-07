@@ -1,3 +1,4 @@
+import subprocess
 import os
 import json
 import pandas as pd
@@ -11,7 +12,6 @@ from win10toast import ToastNotifier
 import requests
 import time
 from datetime import datetime
-import ctypes
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
@@ -128,7 +128,6 @@ game = ''
 begin_downtime = 0
 end_downtime = 0
 current_time = time.time()
-
 def readplay():
     conn = get_db_connection()
     if conn:
@@ -161,6 +160,23 @@ if game != '':
 def close_game(game):
     os.system(f'taskkill /f /im {game}')
 
+def find_username():
+    global username
+    try:
+        result = subprocess.run(['powershell.exe', '-Command', 
+                                'Get-ItemProperty HKCU:\\Software\\Valve\\Steam\\ -EA 0 | Select-Object AutoLoginUser'], 
+                               capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            username = result.stdout.strip().split('-\n')[1]
+            print(f"Found Steam username: {username}")
+            return username
+    
+    except Exception as e:
+        print(f"Error finding username: {e}")
+        return None
+    
+
 def alerts():
     global playtime, limit, current_time
     n = ToastNotifier()
@@ -180,6 +196,7 @@ def alerts():
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = fetch_data_from_db()
 README_PATH = os.path.join(BASE_DIR, 'README.md')
+username = find_username()
 
 # Functie om databasegegevens te tonen
 def show_database_data():
