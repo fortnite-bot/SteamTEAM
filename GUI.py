@@ -90,6 +90,7 @@ def ai(input_message):
 # Database configuratie
 with open("db.json") as f:
     DB_CONFIG = json.load(f)
+
 # Functie om databaseverbinding te maken
 retry = False
 def get_db_connection():
