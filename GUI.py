@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 import psycopg2
-from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label
+from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label, Entry
 from PIL import Image, ImageTk  # Voor afbeeldingen
 from beschrijvende import beschrijvende_statistieken
 from voorspellende import voorspellende_analyse
@@ -12,6 +12,7 @@ import requests
 import time
 from datetime import datetime
 import ctypes
+
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
@@ -234,13 +235,18 @@ def show_voorspellende_analyse():
         # Voeg de afbeelding toe
         IMAGE_PATH = "./voorspellende_analyse_plot.png"
         if os.path.exists(IMAGE_PATH):
-            img = Image.open(IMAGE_PATH)
-            img = img.resize((600, 300))  # Zonder ANTIALIAS
-            img = ImageTk.PhotoImage(img)
+            try:
+                from PIL import Image, ImageTk
 
-            img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
-            img_label.image = img  # Houdt de referentie vast
-            img_label.pack(pady=20)
+                img = Image.open(IMAGE_PATH)
+                img = img.resize((600, 300))  # Zonder ANTIALIAS
+                img = ImageTk.PhotoImage(img)
+
+                img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
+                img_label.image = img  # Houdt de referentie vast
+                img_label.pack(pady=20)
+            except Exception as e:
+                print(f"Fout bij het inlezen van de afbeelding: {e}")
         else:
             label = Label(voorspellende_window, text="Afbeelding niet gevonden.", bg="#9b59b6", fg="white")
             label.pack(pady=20)
@@ -265,7 +271,90 @@ center_frame.pack(expand=True)
 label_title = Label(center_frame, text="SteamTeam Dashboard", font=("Helvetica", 24, "bold"), bg="#2c3e50", fg="white", padx=10, pady=10)
 label_title.grid(row=0, column=0, columnspan=3, pady=(0, 40))
 
-# Buttons
+# Title Label
+from tkinter import *
+
+def zoek_steam_id():
+    steam_id = zoek_input.get()
+    if steam_id == "Voer Steam-ID in":
+        input_message = "Vul een Steam-ID in."
+    elif steam_id == "":
+        input_message = "Vul een Steam-ID in."
+    else:
+        steam_id_list = ["1234567890", "9876543210", "1122334455"]  # Voorbeeld lijst met Steam-ID's
+        if steam_id in steam_id_list:
+            input_message = f"Resultaten voor Steam-ID: {steam_id}"
+        else:
+            input_message = f"Steam-ID '{steam_id}' niet gevonden."
+    print(input_message)
+
+def on_focus_in(event):
+    if zoek_input.get() == "Voer Steam-ID in":
+        zoek_input.delete(0, 'end')  # Verwijder standaardtekst
+
+def on_focus_out(event):
+    if zoek_input.get() == "":
+        zoek_input.insert(0, "Voer Steam-ID in")  # Herstel standaardtekst
+
+center_frame = Frame(root, bg="#2c3e50")
+center_frame.pack(padx=10, pady=10, fill=BOTH, expand=True)
+
+# Label voor zoeken naar Steam-ID
+zoek_label = Label(center_frame, text="Zoek Steam-ID:", font=("Helvetica", 14), bg="#2c3e50", fg="white")
+zoek_label.grid(row=0, column=0, columnspan=3, pady=10)
+
+# Zoekbalk voor Steam-ID
+zoek_input = Entry(center_frame, font=("Helvetica", 14), insertbackground="white")
+zoek_input.insert(0, "Voer Steam-ID in")  # Standaardtekst in de zoekbalk
+zoek_input.bind("<FocusIn>", on_focus_in)  # Verwijder standaardtekst bij focus
+zoek_input.bind("<FocusOut>", on_focus_out)  # Voeg standaardtekst terug bij geen focus
+zoek_input.grid(row=1, column=0, columnspan=2, pady=10)
+
+# Zoekknop voor Steam-ID
+btn_zoek = Button(
+    center_frame,
+    text="Zoeken",
+    command=zoek_steam_id,
+    bg="#2ecc71",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=15,
+    pady=8
+)
+btn_zoek.grid(row=1, column=2, padx=10, pady=10)
+
+# Knoppen voor connectie met Pico en Dashboard
+btn_connect_pico = Button(
+    center_frame,
+    text="Connect met Pico",
+    command=lambda: print("Connectie met Pico gestart"),
+    bg="#3498db",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=15,
+    pady=8
+)
+
+btn_connect_dashboard = Button(
+    center_frame,
+    text="Connect met Dashboard",
+    command=lambda: print("Connectie met Dashboard gestart"),
+    bg="#e74c3c",
+    fg="white",
+    font=("Helvetica", 14),
+    relief="solid",
+    bd=1,
+    padx=15,
+    pady=8
+)
+
+# Knoppen netjes naast elkaar plaatsen
+btn_connect_pico.grid(row=2, column=0, padx=(0, 10), pady=10, sticky="nsew")  # Ruimte aan de rechterkant
+btn_connect_dashboard.grid(row=2, column=1, padx=(10, 0), pady=10, sticky="nsew")  # Ruimte aan de linkerkant
 
 btn_show_db = Button(
     center_frame,
@@ -306,16 +395,17 @@ btn_voorspellende = Button(
     pady=10
 )
 
-# Arrange buttons in grid with padding
-btn_show_db.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-btn_beschrijvende.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
-btn_voorspellende.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
+# Knoppen netjes naast elkaar plaatsen
+btn_show_db.grid(row=3, column=0, padx=10, pady=10, sticky="nsew")
+btn_beschrijvende.grid(row=3, column=1, padx=10, pady=10, sticky="nsew")
+btn_voorspellende.grid(row=3, column=2, padx=10, pady=10, sticky="nsew")
 
-# Make the columns expand equally
+# Zorg voor evenwichtige layout
 center_frame.grid_columnconfigure(0, weight=1)
 center_frame.grid_columnconfigure(1, weight=1)
 center_frame.grid_columnconfigure(2, weight=1)
 
 # Main loop
 root.mainloop()
+
 
