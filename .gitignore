@@ -68,6 +68,8 @@ instance/
 # Scrapy stuff:
 .scrapy
 db.json
+voorspellende_analyse_plot.png
+steamkey.json
 
 # Sphinx documentation
 docs/_build/

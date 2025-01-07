@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 import ctypes
 """
-ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
+ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
 
 Filter response for playtime, do calculation for playtime, add to response the playtime, turn neopixel off or on, change that it doesnt turn on by default but only on response and only request response when serial port (or make web api to control game closure and do it from pico and no laptop needed / connect laptop to same api)
@@ -26,15 +26,11 @@ Notifications: Toast: done
 
 Zorg ervoor dat alle data uit de Steam-API komt en niet uit steam.json
 
-Ook moet start_db geupdate worden met de gegevens van Walid
-
 aan de functie AI niet zitten, werkt goed genoeg op het moment. (soms geeft het "sorry ik kan dat niet doen" dus als je dat kan fixen dan sure maar voor de rest niets aanpassen)
 
 de AI data moet ook nog goed uit de json / api gehaald worden en de data dan in dit dashboard
 
 BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken met links naar de documenten ofz)
-
-Als je niet weet hoe iets van dit moet, bel me op whatsapp
 
 Steam api key van random guy op discord gevonden: ./db.json
 
@@ -49,6 +45,11 @@ Webserver met api calls als we pico gaan gebruiken als proxy.
 76561198081621942
 example response:
 {"response":{"total_count":8,"games":[{"appid":252950,"name":"Rocket League","playtime_2weeks":485,"playtime_forever":4659,"img_icon_url":"9ad6dd3d173523354385955b5fb2af87639c4163"},{"appid":239160,"name":"Thief","playtime_2weeks":436,"playtime_forever":685,"img_icon_url":"d7688a71380a10c1e6113cee1a25ec8c7ae85aed"},{"appid":577940,"name":"Killer Instinct","playtime_2weeks":225,"playtime_forever":1802,"img_icon_url":"6661bdd76f75fbc0e9692c985f307650971f00e0"},{"appid":438490,"name":"GOD EATER 2 Rage Burst","playtime_2weeks":199,"playtime_forever":238,"img_icon_url":"c694868390c63d40956b78e61dc0df27ce493a8c"},{"appid":489520,"name":"Minion Masters","playtime_2weeks":194,"playtime_forever":44688,"img_icon_url":"ad87d123224d786a413a6021ddaf9257e26c0a28"},{"appid":924970,"name":"Back 4 Blood","playtime_2weeks":152,"playtime_forever":2318,"img_icon_url":"4a2e853e7098bb0ebe637107e8180084a3117184"},{"appid":1971870,"name":"Mortal Kombat 1","playtime_2weeks":147,"playtime_forever":8730,"img_icon_url":"8b1c5aa33466802fc2a5df95505be71fae0b8d47"},{"appid":374400,"name":"VoiceBot","playtime_2weeks":11,"playtime_forever":85,"img_icon_url":"15eb5d42a5542eab826c2d50b1ed31d9b89c5829"}]}}
+
+Yoav: Pure functionaliteit
+Walid: Hoe het er uit ziet
+Yulisa: Creatieve toepassing
+Sharona: AI uitwerken
 """ 
 def ai(input_message):
     # Prompt the user for input
@@ -63,7 +64,7 @@ def ai(input_message):
         "messages": [
             {
                 "role": "user",
-                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe. Respond in json format but return it as text, so no markdown {\"response\":{\"executable\": \" FortniteClient-Win64-Shipping.exe\", \"name\": \"Fortnite\"}}" + input_message
+                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe. Respond in json format but return it as text, so no markdown {\"response\":{\"executable\": \"FortniteClient-Win64-Shipping.exe\", \"name\": \"Fortnite\"}}" + input_message
             }
         ],
         "max_completion_tokens": 128000
@@ -80,7 +81,8 @@ def ai(input_message):
         data = response.json()
 
         # Extract and log the response text
-        response_text = data['response']['executable']
+        response_text = str(data['response']).split('"')[5:6]
+        
         return response_text
     except Exception as e:
         print("An error occurred:", str(e))
@@ -88,7 +90,6 @@ def ai(input_message):
 # Database configuratie
 with open("db.json") as f:
     DB_CONFIG = json.load(f)
-
 # Functie om databaseverbinding te maken
 retry = False
 def get_db_connection():
@@ -154,7 +155,7 @@ def readplay():
 playtime, limit, begin_downtime, end_downtime, current_time = readplay()
 
 if game != '': 
-    game = ai(game)
+    game = ai(game)[0]
 
 def close_game(game):
     os.system(f'taskkill /f /im {game}')
@@ -170,7 +171,7 @@ def alerts():
         elif playtime == int(limit):
             n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
             close_game(f'{game}')
-        
+
         if begin_downtime <= current_time <= end_downtime:
             close_game(f'{game}')
 
