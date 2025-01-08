@@ -1,4 +1,5 @@
-<h1 align="center">Hoi, wij zijn Sharona (student-id, Sharona Bhoelai), Yulisa(student-id, Yulisa Oemraw), Yoav (1885887, Yoav Leuw) en Walid (1884102, Walid Karroumi)</h1>
+<h1 align="center">Hoi, wij zijn Sharona (1779443, Sharona Bhoelai), Yulisa (1809481, Yulisa Oemraw), Yoav (1885887, Yoav Leuw) en Walid (1884102, Walid Karroumi)</h1>
+
 <h3 align="center">Wij zijn het SteamTeam </h3>
 
 - 🔭 Wij werken momenteel aan **Steam**
