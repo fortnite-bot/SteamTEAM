@@ -3,7 +3,7 @@ import requests
 # De API-link en parameters
 url = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
 params = {
-    "key": "281C1716E751A37C4A73A7AAF53ADA1D",  # Jouw API-sleutel
+    "key": "281C1716E751A37C4A73A7AAF53ADA1D",  # Onze API-sleutel
     "steamid": "76561198081621942"              # Steam ID
 }
 

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # De API-link en parameters
 url = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
 params = {
-    "key": "281C1716E751A37C4A73A7AAF53ADA1D",  # Jouw API-sleutel
+    "key": "281C1716E751A37C4A73A7AAF53ADA1D",  # Onze API-sleutel
     "steamid": "76561198081621942"  # Steam ID
 }
 
@@ -62,8 +62,8 @@ if response.status_code == 200:
         playtimes_hours = np.array(playtimes) / 60
         predicted_playtimes_hours = predicted_playtimes / 60
 
-        # Voorspellen voor toekomstige games (bijvoorbeeld game 9, 10, 11, 12, 13)
-        future_indices = [9, 10, 11, 12, 13]
+        # Voorspellen voor toekomstige games (bijvoorbeeld game 8, 9, 10, 11, 12)
+        future_indices = [8, 9, 10, 11, 12]
         future_indices_normalized = (np.array(future_indices) - np.mean(indices)) / np.std(indices)
         future_predictions = theta_0_denorm + theta_1_denorm * future_indices_normalized
 
@@ -88,7 +88,7 @@ if response.status_code == 200:
         # Titels en labels
         plt.title("Voorspelde speeltijden (in uren) voor toekomstige games")
         plt.xlabel("Game index")
-        plt.ylabel("Speeltijd (uren)")
+        plt.ylabel("Gemiddelde speeltijd (uren)")
         plt.legend()
         plt.grid(True)
         plt.show()
