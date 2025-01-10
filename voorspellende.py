@@ -65,8 +65,8 @@ plt.plot(x_range, y_range, color='red', label='Regressielijn')
 plt.title("Relatie tussen prijs en gemiddelde speeltijd van games", fontsize=14)
 plt.xlabel("Prijs (€)", fontsize=12)
 plt.ylabel("Gemiddelde speeltijd (minuten)", fontsize=12)
-plt.xlim(0, 80)  # Prijzen tot €100
-plt.ylim(0, 5000)  # Speeltijd tot 5000 minuten
+plt.xlim(0, 80)  # Prijzen tot €100 voor meer duidelijkheid
+plt.ylim(0, 5000)  # Speeltijd tot 5000 minuten voor meer duidelijkheid
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.legend(fontsize=10)
 plt.show()

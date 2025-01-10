@@ -30,7 +30,7 @@ mediaan_prijs = mediaan(prices)
 gemiddelde_speeltijd = gemiddelde(average_playtimes)
 mediaan_speeltijd = mediaan(average_playtimes)
 
-# De output
+# De output van het gemiddelde en mediaan
 print(f"Gemiddelde prijs van alle games: {gemiddelde_prijs:.2f} euro")
 print(f"Mediaan prijs van alle games: {mediaan_prijs:.2f} euro")
 print(f"Gemiddelde speeltijd van alle games: {gemiddelde_speeltijd:.2f} minuten")
