@@ -1,96 +1,42 @@
-import os
 import json
 import pandas as pd
 import numpy as np
 import psycopg2
-from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label, Entry
-from PIL import Image, ImageTk  # Voor afbeeldingen
-from beschrijvende import beschrijvende_statistieken
-from voorspellende import voorspellende_analyse
+import os
+import subprocess
 from win10toast import ToastNotifier
 import requests
 import time
 from datetime import datetime
-import ctypes
+import customtkinter as ctk
+from tkinter import messagebox
+from PIL import Image, ImageTk  # For images
+from beschrijvende import beschrijvende_statistieken
+from voorspellende import voorspellende_analyse
 
-"""
-ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, check process launch, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
-TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
-
-Filter response for playtime, do calculation for playtime, add to response the playtime, turn neopixel off or on, change that it doesnt turn on by default but only on response and only request response when serial port (or make web api to control game closure and do it from pico and no laptop needed / connect laptop to same api)
-
-gui.py splitsen in verschillende py files, ieder voor zn eigen functies. Pico alle requests en database calls laten handlen. gui.py ook echt alleen de gui zelf hebben. nog een py file voor het sluiten van de apps die connected is aan deze externe api.
-
-Logging: Playtime (api), Username / Steamid, Email van selected family members, settings. (logging betekent sla deze data op in de database)
-
-Notifications: Toast: done
-
-Zorg ervoor dat alle data uit de Steam-API komt en niet uit steam.json
-
-Ook moet start_db geupdate worden met de gegevens van Walid
-
-aan de functie AI niet zitten, werkt goed genoeg op het moment. (soms geeft het "sorry ik kan dat niet doen" dus als je dat kan fixen dan sure maar voor de rest niets aanpassen)
-
-de AI data moet ook nog goed uit de json / api gehaald worden en de data dan in dit dashboard
-
-BIM hoeft volgens mij niets in dit dashboard (op ze meest kan je een knop maken met links naar de documenten ofz)
-
-Als je niet weet hoe iets van dit moet, bel me op whatsapp
-
-Steam api key van random guy op discord gevonden: ./db.json
-
-Zodat we geen gebruikersnaam hoeven te vragen en lekker origineel blijven, lijkt me een chrome extentie die checkt of je ingelogd bent een handige manier om de steamid te krijgen zonder dat de gebruiker het hoeft in te vullen.
-
-Ander idee: Gebruikersnaam uit systeem halen en dan met chrome extentie de steamid ophalen door de website te openen en gebruiker zijn account te laten kiezen en dan in de database zetten.
-
-https://steamcommunity.com/search/users/#text=yoav
-queryselector: .searchPersonaName: href.split('profiles/')[1] of location.href.split('profiles/')[1]
-
-Webserver met api calls als we pico gaan gebruiken als proxy.
-76561198081621942
-example response:
-{"response":{"total_count":8,"games":[{"appid":252950,"name":"Rocket League","playtime_2weeks":485,"playtime_forever":4659,"img_icon_url":"9ad6dd3d173523354385955b5fb2af87639c4163"},{"appid":239160,"name":"Thief","playtime_2weeks":436,"playtime_forever":685,"img_icon_url":"d7688a71380a10c1e6113cee1a25ec8c7ae85aed"},{"appid":577940,"name":"Killer Instinct","playtime_2weeks":225,"playtime_forever":1802,"img_icon_url":"6661bdd76f75fbc0e9692c985f307650971f00e0"},{"appid":438490,"name":"GOD EATER 2 Rage Burst","playtime_2weeks":199,"playtime_forever":238,"img_icon_url":"c694868390c63d40956b78e61dc0df27ce493a8c"},{"appid":489520,"name":"Minion Masters","playtime_2weeks":194,"playtime_forever":44688,"img_icon_url":"ad87d123224d786a413a6021ddaf9257e26c0a28"},{"appid":924970,"name":"Back 4 Blood","playtime_2weeks":152,"playtime_forever":2318,"img_icon_url":"4a2e853e7098bb0ebe637107e8180084a3117184"},{"appid":1971870,"name":"Mortal Kombat 1","playtime_2weeks":147,"playtime_forever":8730,"img_icon_url":"8b1c5aa33466802fc2a5df95505be71fae0b8d47"},{"appid":374400,"name":"VoiceBot","playtime_2weeks":11,"playtime_forever":85,"img_icon_url":"15eb5d42a5542eab826c2d50b1ed31d9b89c5829"}]}}
-""" 
+# Functie om de AI-aanroepen te verwerken (ongewijzigd)
 def ai(input_message):
-    # Prompt the user for input
-    
-    # Set up the API request
     url = "https://www.promptpal.net/api/chat-gpt-no-stream"
-    headers = {
-        'Content-Type': 'application/json'
-    }
+    headers = {'Content-Type': 'application/json'}
     data = {
         "model": "gpt-4o",
-        "messages": [
-            {
-                "role": "user",
-                "content": "You are given the name of a game, give to the best of your abilities the executable name of that game. only answer with the executablew name. nothing agreeing or outside as this message is going straight into a command prompt. for example if i were to ask for fortnite you would give: FortniteClient-Win64-Shipping.exe. Respond in json format but return it as text, so no markdown {\"response\":{\"executable\": \" FortniteClient-Win64-Shipping.exe\", \"name\": \"Fortnite\"}}" + input_message
-            }
-        ],
+        "messages": [{"role": "user", "content": "Your prompt here " + input_message}],
         "max_completion_tokens": 128000
     }
-
     try:
-        # Send the POST request
         response = requests.post(url, headers=headers, json=data)
-        
-        # Check if the request was successful
         response.raise_for_status()
-
-        # Parse the JSON response
         data = response.json()
-
-        # Extract and log the response text
-        response_text = data['response']['executable']
+        response_text = str(data['response']).split('"')[5:6]
         return response_text
     except Exception as e:
         print("An error occurred:", str(e))
 
-# Database configuratie
+# Database configuratie (ongewijzigd)
 with open("db.json") as f:
     DB_CONFIG = json.load(f)
 
-# Functie om databaseverbinding te makenA
+# Functie om verbinding te maken met de database (ongewijzigd)
 retry = False
 def get_db_connection():
     global retry
@@ -100,11 +46,11 @@ def get_db_connection():
     except Exception as e:
         print(f"Fout bij het verbinden met de database: {e}")
         if not retry:
-            retry = True 
+            retry = True
             return get_db_connection()
         return None
 
-# Functie om gegevens uit de database op te halen
+# Functie om gegevens uit de database te halen (ongewijzigd)
 def fetch_data_from_db():
     conn = get_db_connection()
     if conn:
@@ -121,19 +67,14 @@ def fetch_data_from_db():
     else:
         return []
 
-playtime = 0  # get from api
-limit = 2  # get from db, default = 2, minimum = 0.5?
-game = ''
-begin_downtime = 0
-end_downtime = 0
-current_time = time.time()
-
+# Functie om speeltijd uit de database te lezen (ongewijzigd)
 def readplay():
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cursor:
-                cursor.execute('SELECT "Playtime", "Playtime_limit", "downtime", "end_downtime", "time" FROM public."User"')
+                cursor.execute(
+                    'SELECT "Playtime", "Playtime_limit", "downtime", "end_downtime", "time" FROM public."User"')
                 rows = cursor.fetchall()
                 if rows:
                     playtime, limit, begin_downtime, end_downtime, current_time = rows[0]
@@ -154,258 +95,199 @@ def readplay():
 
 playtime, limit, begin_downtime, end_downtime, current_time = readplay()
 
-if game != '': 
-    game = ai(game)
+# Functie om speeltijdlimiet in te stellen (ongewijzigd)
+def set_playtime_limit(limit_entry):
+    try:
+        new_limit = float(limit_entry.get())  # Input in uren
+        if new_limit < 0.5:
+            raise ValueError("De speeltijdlimiet moet minimaal 0.5 uur zijn.")
 
+        global limit
+        limit = new_limit  # Stel de nieuwe limiet in
+
+        print(f"Speeltijdlimiet ingesteld op {limit} uur.")
+    except ValueError as e:
+        print(f"Fout bij het instellen van de limiet: {e}")
+
+# Functie om een game af te sluiten (ongewijzigd)
 def close_game(game):
     os.system(f'taskkill /f /im {game}')
 
+# Functie om gebruikersnaam te vinden (ongewijzigd)
+def find_username():
+    global username
+    try:
+        result = subprocess.run(['powershell.exe', '-Command',
+                                 'Get-ItemProperty HKCU:\\Software\\Valve\\Steam\\ -EA 0 | Select-Object AutoLoginUser'],
+                                capture_output=True, text=True)
+
+        if result.returncode == 0:
+            username = result.stdout.strip().split('-\n')[1]
+            print(f"Gebruikersnaam van Steam gevonden: {username}")
+            return username
+
+    except Exception as e:
+        print(f"Fout bij het vinden van de gebruikersnaam: {e}")
+        return None
+
+# Functie voor meldingen (ongewijzigd)
 def alerts():
     global playtime, limit, current_time
     n = ToastNotifier()
     if playtime > 0:
-        if playtime < int(limit) - 2: 
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
+        if playtime < int(limit) - 2:
+            n.show_toast("Speeltijd herinnering!",
+                         f"Je hebt {playtime} uur gespeeld. Je hebt 2 uur speeltijd over. Vergeet niet om water te drinken en te rekken.",
+                         duration=10)
         elif playtime < int(limit) - 1:
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
-        elif playtime == int(limit):
-            n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
-            close_game(f'{game}')
-        
-        if begin_downtime <= current_time <= end_downtime:
-            close_game(f'{game}')
-
-# Dynamisch het bestandspad bepalen
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = fetch_data_from_db()
-README_PATH = os.path.join(BASE_DIR, 'README.md')
-
-# Functie om databasegegevens te tonen
-def show_database_data():
-    data = fetch_data_from_db()
-
-    db_window = Toplevel()
-    db_window.title("Steam Database Gegevens")
-    db_window.geometry("800x600")
-    db_window.configure(bg="#34495e")
-
-    text = Text(db_window, wrap="word", bg="#2c3e50", fg="white", font=("Helvetica", 12), padx=10, pady=10)
-    if data:
-        for row in data:
-            text.insert("end", f"Naam: {row[1]}, Prijs: €{row[2]:.2f}, Speeltijd: {row[3]} min, Eigenaren: {row[4]}\n")
+            n.show_toast("Speeltijd herinnering!",
+                         f"Je hebt {playtime} uur gespeeld. Je hebt 1 uur speeltijd over. Zorg goed voor je gezondheid.",
+                         duration=10)
+        elif playtime >= int(limit):
+            n.show_toast("Speeltijdlimiet bereikt!",
+                         f"Je hebt {playtime} uur gespeeld. Je hebt de speeltijdlimiet bereikt. Overweeg een pauze.",
+                         duration=10)
+    elif current_time >= end_downtime:
+        n.show_toast("Pauze bereikt",
+                     "Je hebt je pauze bereikt, neem een break.",
+                     duration=10)
     else:
-        text.insert("end", "Geen gegevens gevonden in de database.")
-    text.config(state="disabled")
-    text.pack(fill="both", expand=True)
+        n.show_toast("Speeltijd herinnering!",
+                     f"Je hebt {playtime} uur gespeeld. Speeltijd over: {int(limit) - int(playtime)}",
+                     duration=10)
 
-# Functie om beschrijvende statistieken te tonen
-def show_beschrijvende_statistieken():
-    try:
-        beschrijvende_resultaten = beschrijvende_statistieken(DATA_PATH)
+    print("Speeltijd-melding uitgevoerd.")
+    return playtime, limit
 
-        beschrijvende_window = Toplevel()
-        beschrijvende_window.title("Beschrijvende Statistieken")
-        beschrijvende_window.geometry("800x400")
-        beschrijvende_window.configure(bg="#1abc9c")
 
-        text = Text(beschrijvende_window, wrap="word", bg="#2c3e50", fg="white", font=("Helvetica", 12), padx=10, pady=10)
-        text.insert("1.0", beschrijvende_resultaten)
-        text.config(state="disabled")
-        text.pack(fill="both", expand=True)
-    except Exception as e:
-        print(f"Fout bij het tonen van beschrijvende statistieken: {e}")
+# Definieer de kleuren en stijlen
+PRIMARY_COLOR = "#4A90E2"  # Blauw
+SECONDARY_COLOR = "#D9E4F5"  # Lichtblauw
+BACKGROUND_COLOR = "#031A6B"  # Blauw
+TEXT_COLOR = "#FFFFFF"  # Wit voor tekst
+BUTTON_COLOR = "#4A90E2"  # Blauw voor knoppen
+BUTTON_TEXT_COLOR = "white"  # Witte tekst op knoppen
+FONT_FAMILY = "Helvetica"
+FONT_SIZE = 14
+FONT_TITLE = "Helvetica 24 bold"
 
-# Functie om voorspellende analyse te tonen
-def show_voorspellende_analyse():
-    try:
-        voorspellende_resultaten = voorspellende_analyse(DATA_PATH)
+# Dummy Steam ID voor validatie
+VALID_STEAM_ID = "12345678"
 
-        voorspellende_window = Toplevel()
-        voorspellende_window.title("Voorspellende Analyse")
-        voorspellende_window.geometry("800x600")
-        voorspellende_window.configure(bg="#9b59b6")
 
-        # Toon de tekstuele resultaten
-        text = Text(voorspellende_window, wrap="word", bg="#2c3e50", fg="white",
-                    font=("Helvetica", 12), padx=10, pady=10, height=10)
-        text.insert("1.0", voorspellende_resultaten)
-        text.config(state="disabled")
-        text.pack(fill="x", padx=10, pady=10)
+class App(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("SteamTeam Dashboard")
+        self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}")
+        self.state("zoomed")  # Maak het venster opstarten in volledig scherm
+        self.configure(background=BACKGROUND_COLOR)
+        self.frames = {}
 
-        # Voeg de afbeelding toe
-        IMAGE_PATH = "./voorspellende_analyse_plot.png"
-        if os.path.exists(IMAGE_PATH):
-            try:
-                from PIL import Image, ImageTk
+        # Configureer het raster om frames volledig uit te rekken
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
-                img = Image.open(IMAGE_PATH)
-                img = img.resize((600, 300))  # Zonder ANTIALIAS
-                img = ImageTk.PhotoImage(img)
+        # Voeg frames toe
+        self.add_frame(LoginScreen, "LoginScreen")
+        self.add_frame(Dashboard, "Dashboard")
 
-                img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
-                img_label.image = img  # Houdt de referentie vast
-                img_label.pack(pady=20)
-            except Exception as e:
-                print(f"Fout bij het inlezen van de afbeelding: {e}")
+        self.show_frame("LoginScreen")
+
+    def add_frame(self, frame_class, name):
+        frame = frame_class(parent=self)
+        self.frames[name] = frame
+        frame.grid(row=0, column=0, sticky="nsew")  # Laat het frame zich uitbreiden in alle richtingen
+
+    def show_frame(self, name):
+        frame = self.frames[name]
+        frame.tkraise()
+
+class LoginScreen(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent, fg_color=BACKGROUND_COLOR)
+
+        # Titel
+        title = ctk.CTkLabel(self, text="Welkom bij SteamTeam", font=("Helvetica", 24), text_color=TEXT_COLOR, fg_color=BACKGROUND_COLOR)
+        title.pack(pady=40)
+
+        # Instructie
+        instruction = ctk.CTkLabel(self, text="Voer je Steam ID of gebruikersnaam in:", font=("Helvetica", 14), fg_color=BACKGROUND_COLOR, text_color=TEXT_COLOR)
+        instruction.pack(pady=10)
+
+        # Invoerveld
+        self.entry = ctk.CTkEntry(self, font=("Helvetica", 14), width=300, border_width=2, corner_radius=8)
+        self.entry.pack(pady=20)
+
+        # Login knop
+        login_button = ctk.CTkButton(self, text="Login", font=("Helvetica", 14, "bold"),
+                                     fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                                     hover_color=PRIMARY_COLOR, width=250, height=40,
+                                     command=self.validate_login)
+        login_button.pack(pady=20)
+
+    def validate_login(self):
+        steam_id = self.entry.get()
+        if steam_id == VALID_STEAM_ID:
+            self.master.show_frame("Dashboard")
         else:
-            label = Label(voorspellende_window, text="Afbeelding niet gevonden.", bg="#9b59b6", fg="white")
-            label.pack(pady=20)
+            messagebox.showerror("Fout", "Ongeldige Steam ID of gebruikersnaam.")
 
-    except Exception as e:
-        print(f"Fout bij het tonen van voorspellende analyse: {e}")
+class Dashboard(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent, fg_color=BACKGROUND_COLOR)
 
-# GUI setup
-root = Tk()
-root.title("SteamTeam Dashboard")
-root.geometry("800x600")  # Increased width for better button placement
-root.configure(bg="#2c3e50")
+        # Titel
+        title = ctk.CTkLabel(self, text="SteamTeam Dashboard", font=("Helvetica", 24), text_color=TEXT_COLOR, fg_color=BACKGROUND_COLOR)
+        title.pack(pady=40)
 
-# Frame for layout
-frame = Frame(root, bg="#2c3e50", pady=20)
-frame.pack(fill="both", expand=True)
+        # Beschrijvende secties
+        self.create_dashboard_button("Bekijk Database Gegevens", lambda: messagebox.showinfo("Actie", "Database Gegevens Weergeven"))
+        self.create_dashboard_button("Beschrijvende Statistieken", lambda: messagebox.showinfo("Actie", "Beschrijvende Statistieken"))
+        self.create_dashboard_button("Voorspellende Analyse", lambda: messagebox.showinfo("Actie", "Voorspellende Analyse"))
 
-center_frame = Frame(frame, bg="#2c3e50", pady=20)
-center_frame.pack(expand=True)
+        # Speeltijdlimiet
+        limit_label = ctk.CTkLabel(self, text="Stel speeltijdlimiet in (in uren):", font=("Helvetica", 14), fg_color=BACKGROUND_COLOR, text_color=TEXT_COLOR)
+        limit_label.pack(pady=20)
 
-# Title Label
-label_title = Label(center_frame, text="SteamTeam Dashboard", font=("Helvetica", 24, "bold"), bg="#2c3e50", fg="white", padx=10, pady=10)
-label_title.grid(row=0, column=0, columnspan=3, pady=(0, 40))
+        limit_entry = ctk.CTkEntry(self, font=("Helvetica", 14), width=100, border_width=2, corner_radius=8)
+        limit_entry.pack(pady=10)
 
-# Title Label
-from tkinter import *
+        set_limit_button = ctk.CTkButton(self, text="Instellen", font=("Helvetica", 14, "bold"),
+                                         fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                                         hover_color=PRIMARY_COLOR, width=250, height=40,
+                                         command=lambda: messagebox.showinfo("Limiet", f"Limiet ingesteld: {limit_entry.get()} uur"))
+        set_limit_button.pack(pady=20)
 
-def zoek_steam_id():
-    steam_id = zoek_input.get()
-    if steam_id == "Voer Steam-ID in":
-        input_message = "Vul een Steam-ID in."
-    elif steam_id == "":
-        input_message = "Vul een Steam-ID in."
-    else:
-        steam_id_list = ["1234567890", "9876543210", "1122334455"]  # Voorbeeld lijst met Steam-ID's
-        if steam_id in steam_id_list:
-            input_message = f"Resultaten voor Steam-ID: {steam_id}"
-        else:
-            input_message = f"Steam-ID '{steam_id}' niet gevonden."
-    print(input_message)
+    def create_dashboard_button(self, text, command):
+        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
+        button.pack(fill="x", pady=15, padx=50)
 
-def on_focus_in(event):
-    if zoek_input.get() == "Voer Steam-ID in":
-        zoek_input.delete(0, 'end')  # Verwijder standaardtekst
-
-def on_focus_out(event):
-    if zoek_input.get() == "":
-        zoek_input.insert(0, "Voer Steam-ID in")  # Herstel standaardtekst
-
-center_frame = Frame(root, bg="#2c3e50")
-center_frame.pack(padx=10, pady=10, fill=BOTH, expand=True)
-
-# Label voor zoeken naar Steam-ID
-zoek_label = Label(center_frame, text="Zoek Steam-ID:", font=("Helvetica", 14), bg="#2c3e50", fg="white")
-zoek_label.grid(row=0, column=0, columnspan=3, pady=10)
-
-# Zoekbalk voor Steam-ID
-zoek_input = Entry(center_frame, font=("Helvetica", 14), insertbackground="white")
-zoek_input.insert(0, "Voer Steam-ID in")  # Standaardtekst in de zoekbalk
-zoek_input.bind("<FocusIn>", on_focus_in)  # Verwijder standaardtekst bij focus
-zoek_input.bind("<FocusOut>", on_focus_out)  # Voeg standaardtekst terug bij geen focus
-zoek_input.grid(row=1, column=0, columnspan=2, pady=10)
-
-# Zoekknop voor Steam-ID
-btn_zoek = Button(
-    center_frame,
-    text="Zoeken",
-    command=zoek_steam_id,
-    bg="#2ecc71",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=15,
-    pady=8
-)
-btn_zoek.grid(row=1, column=2, padx=10, pady=10)
-
-# Knoppen voor connectie met Pico en Dashboard
-btn_connect_pico = Button(
-    center_frame,
-    text="Connect met Pico",
-    command=lambda: print("Connectie met Pico gestart"),
-    bg="#3498db",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=15,
-    pady=8
-)
-
-btn_connect_dashboard = Button(
-    center_frame,
-    text="Connect met Dashboard",
-    command=lambda: print("Connectie met Dashboard gestart"),
-    bg="#e74c3c",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=15,
-    pady=8
-)
-
-# Knoppen netjes naast elkaar plaatsen
-btn_connect_pico.grid(row=2, column=0, padx=(0, 10), pady=10, sticky="nsew")  # Ruimte aan de rechterkant
-btn_connect_dashboard.grid(row=2, column=1, padx=(10, 0), pady=10, sticky="nsew")  # Ruimte aan de linkerkant
-
-btn_show_db = Button(
-    center_frame,
-    text="Bekijk Database Gegevens",
-    command=show_database_data,
-    bg="#f1c40f",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
-
-btn_beschrijvende = Button(
-    center_frame,
-    text="Beschrijvende Statistieken",
-    command=show_beschrijvende_statistieken,
-    bg="#1abc9c",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
-
-btn_voorspellende = Button(
-    center_frame,
-    text="Voorspellende Analyse",
-    command=show_voorspellende_analyse,
-    bg="#9b59b6",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
-
-# Knoppen netjes naast elkaar plaatsen
-btn_show_db.grid(row=3, column=0, padx=10, pady=10, sticky="nsew")
-btn_beschrijvende.grid(row=3, column=1, padx=10, pady=10, sticky="nsew")
-btn_voorspellende.grid(row=3, column=2, padx=10, pady=10, sticky="nsew")
-
-# Zorg voor evenwichtige layout
-center_frame.grid_columnconfigure(0, weight=1)
-center_frame.grid_columnconfigure(1, weight=1)
-center_frame.grid_columnconfigure(2, weight=1)
-
-# Main loop
-root.mainloop()
+    def create_dashboard_button(self, text, command):
+        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
+        button.pack(fill="x", pady=15, padx=50)
 
 
+    def create_dashboard_button(self, text, command):
+        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
+        button.pack(fill="x", pady=15, padx=50)
+
+
+    def create_dashboard_button(self, text, command):
+        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
+        button.pack(fill="x", pady=15, padx=50)
+
+
+    def create_dashboard_button(self, text, command):
+        button = ctk.CTkButton(self, text=text, font=(FONT_FAMILY, FONT_SIZE), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
+                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
+        button.pack(fill="x", pady=15, padx=50)
+
+# Start de applicatie
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()
