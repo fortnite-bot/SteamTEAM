@@ -14,6 +14,10 @@ from PIL import Image, ImageTk  # For images
 from beschrijvende import beschrijvende_statistieken
 from voorspellende import voorspellende_analyse
 
+# Instellen van het thema
+ctk.set_appearance_mode("dark")  # Kies tussen "light" en "dark"
+ctk.set_default_color_theme("blue")  # Kies een kleurthema (blauw, groen, etc.)
+
 # Functie om de AI-aanroepen te verwerken (ongewijzigd)
 def ai(input_message):
     url = "https://www.promptpal.net/api/chat-gpt-no-stream"
@@ -160,28 +164,12 @@ def alerts():
     return playtime, limit
 
 
-# Definieer de kleuren en stijlen
-PRIMARY_COLOR = "#4A90E2"  # Blauw
-SECONDARY_COLOR = "#D9E4F5"  # Lichtblauw
-BACKGROUND_COLOR = "#031A6B"  # Blauw
-TEXT_COLOR = "#FFFFFF"  # Wit voor tekst
-BUTTON_COLOR = "#4A90E2"  # Blauw voor knoppen
-BUTTON_TEXT_COLOR = "white"  # Witte tekst op knoppen
-FONT_FAMILY = "Helvetica"
-FONT_SIZE = 14
-FONT_TITLE = "Helvetica 24 bold"
-
-# Dummy Steam ID voor validatie
-VALID_STEAM_ID = "12345678"
-
-
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("SteamTeam Dashboard")
         self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}")
         self.state("zoomed")  # Maak het venster opstarten in volledig scherm
-        self.configure(background=BACKGROUND_COLOR)
         self.frames = {}
 
         # Configureer het raster om frames volledig uit te rekken
@@ -203,91 +191,140 @@ class App(ctk.CTk):
         frame = self.frames[name]
         frame.tkraise()
 
+
 class LoginScreen(ctk.CTkFrame):
     def __init__(self, parent):
-        super().__init__(parent, fg_color=BACKGROUND_COLOR)
+        super().__init__(parent, fg_color="transparent")  # Zorg ervoor dat de achtergrond transparant is
 
         # Titel
-        title = ctk.CTkLabel(self, text="Welkom bij SteamTeam", font=("Helvetica", 24), text_color=TEXT_COLOR, fg_color=BACKGROUND_COLOR)
-        title.pack(pady=40)
+        title = ctk.CTkLabel(
+            self,
+            text="Welkom bij het SteamTeam!",
+            font=("Helvetica", 50),  # Grotere tekstgrootte
+            text_color="white",
+            fg_color="transparent"
+        )
+        title.pack(pady=100)  # Vergroot de padding boven en onder de titel
 
         # Instructie
-        instruction = ctk.CTkLabel(self, text="Voer je Steam ID of gebruikersnaam in:", font=("Helvetica", 14), fg_color=BACKGROUND_COLOR, text_color=TEXT_COLOR)
-        instruction.pack(pady=10)
+        instruction = ctk.CTkLabel(
+            self,
+            text="Voer je Steam ID of gebruikersnaam in:",
+            font=("Helvetica", 30),  # Grotere tekstgrootte
+            fg_color="transparent",
+            text_color="white"
+        )
+        instruction.pack(pady=40)  # Vergroot de padding boven en onder de instructie
 
         # Invoerveld
-        self.entry = ctk.CTkEntry(self, font=("Helvetica", 14), width=300, border_width=2, corner_radius=8)
-        self.entry.pack(pady=20)
+        self.entry = ctk.CTkEntry(
+            self,
+            font=("Helvetica", 20),  # Grotere tekstgrootte voor invoerveld
+            width=400,  # Breder invoerveld
+            border_width=2,
+            corner_radius=8
+        )
+        self.entry.pack(pady=30)  # Vergroot de padding boven en onder het invoerveld
 
         # Login knop
-        login_button = ctk.CTkButton(self, text="Login", font=("Helvetica", 14, "bold"),
-                                     fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                                     hover_color=PRIMARY_COLOR, width=250, height=40,
-                                     command=self.validate_login)
-        login_button.pack(pady=20)
+        login_button = ctk.CTkButton(
+            self,
+            text="Login",
+            font=("Helvetica", 20, "bold"),  # Grotere tekstgrootte voor de knop
+            fg_color="#4A90E2",
+            text_color="white",
+            hover_color="#003366",
+            width=300,  # Grotere breedte voor de knop
+            height=50,  # Grotere hoogte voor de knop
+            command=self.validate_login
+        )
+        login_button.pack(pady=50)  # Vergroot de padding onder de knop
 
     def validate_login(self):
         steam_id = self.entry.get()
-        if steam_id == VALID_STEAM_ID:
+        if steam_id == "12345678":
             self.master.show_frame("Dashboard")
         else:
             messagebox.showerror("Fout", "Ongeldige Steam ID of gebruikersnaam.")
 
+
 class Dashboard(ctk.CTkFrame):
     def __init__(self, parent):
-        super().__init__(parent, fg_color=BACKGROUND_COLOR)
+        super().__init__(parent, fg_color="transparent")  # Zorg ervoor dat de achtergrond transparant is
 
         # Titel
-        title = ctk.CTkLabel(self, text="SteamTeam Dashboard", font=("Helvetica", 24), text_color=TEXT_COLOR, fg_color=BACKGROUND_COLOR)
-        title.pack(pady=40)
+        title = ctk.CTkLabel(
+            self,
+            text="SteamTeam Dashboard",
+            font=("Helvetica", 50),  # Grotere tekstgrootte
+            text_color="white",
+            fg_color="transparent"
+        )
+        title.pack(pady=100)  # Vergroot de padding boven en onder de titel
 
         # Beschrijvende secties
-        self.create_dashboard_button("Bekijk Database Gegevens", lambda: messagebox.showinfo("Actie", "Database Gegevens Weergeven"))
-        self.create_dashboard_button("Beschrijvende Statistieken", lambda: messagebox.showinfo("Actie", "Beschrijvende Statistieken"))
-        self.create_dashboard_button("Voorspellende Analyse", lambda: messagebox.showinfo("Actie", "Voorspellende Analyse"))
+        self.create_dashboard_button(
+            "Bekijk Database Gegevens",
+            lambda: messagebox.showinfo("Actie", "Database Gegevens Weergeven")
+        )
+        self.create_dashboard_button(
+            "Beschrijvende Statistieken",
+            lambda: messagebox.showinfo("Actie", "Beschrijvende Statistieken")
+        )
+        self.create_dashboard_button(
+            "Voorspellende Analyse",
+            lambda: messagebox.showinfo("Actie", "Voorspellende Analyse")
+        )
 
         # Speeltijdlimiet
-        limit_label = ctk.CTkLabel(self, text="Stel speeltijdlimiet in (in uren):", font=("Helvetica", 14), fg_color=BACKGROUND_COLOR, text_color=TEXT_COLOR)
-        limit_label.pack(pady=20)
+        limit_label = ctk.CTkLabel(
+            self,
+            text="Stel speeltijdlimiet in (in uren):",
+            font=("Helvetica", 30),  # Grotere tekstgrootte
+            fg_color="transparent",
+            text_color="white"
+        )
+        limit_label.pack(pady=40)  # Vergroot de padding boven en onder het label
 
-        limit_entry = ctk.CTkEntry(self, font=("Helvetica", 14), width=100, border_width=2, corner_radius=8)
-        limit_entry.pack(pady=10)
+        limit_entry = ctk.CTkEntry(
+            self,
+            font=("Helvetica", 20),  # Grotere tekstgrootte voor invoerveld
+            width=400,  # Breder invoerveld
+            border_width=2,
+            corner_radius=8
+        )
+        limit_entry.pack(pady=30)  # Vergroot de padding boven en onder het invoerveld
 
-        set_limit_button = ctk.CTkButton(self, text="Instellen", font=("Helvetica", 14, "bold"),
-                                         fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                                         hover_color=PRIMARY_COLOR, width=250, height=40,
-                                         command=lambda: messagebox.showinfo("Limiet", f"Limiet ingesteld: {limit_entry.get()} uur"))
-        set_limit_button.pack(pady=20)
-
-    def create_dashboard_button(self, text, command):
-        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
-        button.pack(fill="x", pady=15, padx=50)
-
-    def create_dashboard_button(self, text, command):
-        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
-        button.pack(fill="x", pady=15, padx=50)
-
-
-    def create_dashboard_button(self, text, command):
-        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
-        button.pack(fill="x", pady=15, padx=50)
-
-
-    def create_dashboard_button(self, text, command):
-        button = ctk.CTkButton(self, text=text, font=("Helvetica", 14), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
-        button.pack(fill="x", pady=15, padx=50)
-
+        set_limit_button = ctk.CTkButton(
+            self,
+            text="Instellen",
+            font=("Helvetica", 20, "bold"),  # Grotere tekstgrootte voor de knop
+            fg_color="#4A90E2",
+            text_color="white",
+            hover_color="#003366",
+            width=300,  # Grotere breedte voor de knop
+            height=50,  # Grotere hoogte voor de knop
+            command=lambda: messagebox.showinfo("Limiet", f"Limiet ingesteld: {limit_entry.get()} uur")
+        )
+        set_limit_button.pack(pady=50)  # Vergroot de padding onder de knop
 
     def create_dashboard_button(self, text, command):
-        button = ctk.CTkButton(self, text=text, font=(FONT_FAMILY, FONT_SIZE), fg_color=BUTTON_COLOR, text_color=BUTTON_TEXT_COLOR,
-                               hover_color=PRIMARY_COLOR, width=300, height=40, command=command)
-        button.pack(fill="x", pady=15, padx=50)
+        button = ctk.CTkButton(
+            self,
+            text=text,
+            font=("Helvetica", 20),  # Grotere tekstgrootte voor knoppen
+            fg_color="#4A90E2",
+            text_color="white",
+            hover_color="#003366",
+            width=400,  # Brede knoppen
+            height=50,  # Hogere knoppen
+            command=command
+        )
+        button.pack(pady=20)  # Vergroot de padding boven en onder de knoppen
+
 
 # Start de applicatie
 if __name__ == "__main__":
     app = App()
     app.mainloop()
+
