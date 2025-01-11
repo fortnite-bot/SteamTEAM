@@ -12,6 +12,10 @@ from win10toast import ToastNotifier
 import requests
 import time
 from datetime import datetime
+from steam_memory import steamid
+from pcproxy import send
+import re
+
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
 TI: Verander de code uit TI.py om bij zo een alert tijd het rode licht aan te passen (kan met seriele communicatie, mag ook anders) en dan het rode licht uit zetten door de sensor te gebruiken
@@ -51,6 +55,7 @@ Walid: Hoe het er uit ziet
 Yulisa: Creatieve toepassing
 Sharona: AI uitwerken
 """ 
+
 def ai(input_message):
     # Prompt the user for input
     
@@ -88,7 +93,7 @@ def ai(input_message):
         print("An error occurred:", str(e))
 
 # Database configuratie
-with open("db.json") as f:
+with open("db.json", encoding="utf-8") as f:
     DB_CONFIG = json.load(f)
 
 # Functie om databaseverbinding te maken
@@ -128,7 +133,58 @@ game = ''
 begin_downtime = 0
 end_downtime = 0
 current_time = time.time()
-def readplay():
+steam_id = int(steamid())
+print(steam_id)
+def readplay_time(): #api --> DB --> Gespeelde tijd binnen een dag
+    global steam_id, current_time
+    with open('steamkey.json', 'r') as file:
+        data = json.load(file)
+        steam_key = data['steamkey']
+
+    # Make request to Steam API
+   
+    if not isinstance(steam_id, int) or steam_id <= 0:
+        steam_id = 0
+    response = send(steam_id).replace("'", "\"").replace("\"s", "s")	
+    response = json.loads(response, strict=False)
+
+
+    # Sum playtime_forever
+    try:
+        total_playtime = sum(game['playtime_forever'] for game in response['response']['games'])
+        # Get the current playtime from the database for the specific user
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT \"Playtime\" FROM public.\"User\" WHERE \"User\" = %s ORDER BY \"time\" DESC LIMIT 1", (str(steam_id),))
+        last_playtime_entry = cursor.fetchone()
+
+        # Check if the playtime has changed
+        if last_playtime_entry is None or total_playtime != int(last_playtime_entry[0]):
+            # Insert total playtime into database
+            cursor.execute("INSERT INTO public.\"User\" (\"User\",\"Playtime\", \"time\") VALUES (%s, %s, %s)", (str(steam_id), str(total_playtime), current_time))
+            conn.commit()
+
+        # Query for entries in the past 24 hours for the specific user
+        past_24_hours = current_time - 86400
+        cursor.execute("SELECT \"time\", \"Playtime\" FROM public.\"User\" WHERE \"User\" = %s AND \"time\" BETWEEN %s AND %s", (str(steam_id), past_24_hours, current_time))
+        recent_rows = cursor.fetchall()
+
+        # Calculate differences
+        total_playtime_diff = 0
+        for row in recent_rows:
+            playtime_diff = total_playtime - int(row[1])
+            total_playtime_diff += playtime_diff
+
+        # Close the database connection
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        total_playtime = 0
+        total_playtime_diff = 0
+    return total_playtime_diff
+def readplay(): #Set playtime, limit, downtime, end_downtime, current_time from DB
+    readplay_time()
     conn = get_db_connection()
     if conn:
         try:
@@ -151,9 +207,24 @@ def readplay():
             conn.close()
     else:
         return 0, 2, 0, 0, 0
-
-playtime, limit, begin_downtime, end_downtime, current_time = readplay()
-
+    
+def set_limit():
+    global steam_id
+    limit_entry = ''
+    limit = limit_entry.get()
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("UPDATE public.\"User\" SET \"Playtime_limit\" = %s WHERE \"User\" = %s", (limit, str(steam_id)))
+                conn.commit()
+        except Exception as e:
+            print(f"Fout bij het updaten van de limiet: {e}")
+        finally:
+            conn.close()
+            playtime, limit, begin_downtime, end_downtime, current_time = readplay()
+limit = int(limit) * 60
+send(';2;'+str(playtime)+';;'+str(limit))
 if game != '': 
     game = ai(game)[0]
 
@@ -168,7 +239,11 @@ def find_username():
                                capture_output=True, text=True)
         
         if result.returncode == 0:
-            username = result.stdout.strip().split('-\n')[1]
+            output_lines = result.stdout.strip().split('-\n')
+            if len(output_lines) > 1:
+                username = output_lines[1].strip()
+            else:
+                username = None
             print(f"Found Steam username: {username}")
             return username
     
@@ -176,18 +251,18 @@ def find_username():
         print(f"Error finding username: {e}")
         return None
     
+n = ToastNotifier()
 
 def alerts():
-    global playtime, limit, current_time
-    n = ToastNotifier()
+    global playtime, limit, current_time, game, n
     if playtime > 0:
         if playtime < int(limit) - 2: 
             n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
-        elif playtime < int(limit) - 1:
+        elif playtime <= int(limit) - 1:
             n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
-        elif playtime == int(limit):
+        elif playtime >= int(limit):
             n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
-            close_game(f'{game}')
+            close_game(game)
 
         if begin_downtime <= current_time <= end_downtime:
             close_game(f'{game}')
