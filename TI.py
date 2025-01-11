@@ -21,9 +21,9 @@ def readplay_time(steam_id):
     print(response)
 
 with open('network.json') as f:
-    config = json.load(f)[1]
-    ssid = config['ssid']
-    password = config['password']
+    config = json.load(f)
+    ssid = config[1]['ssid']
+    password = config[1]['password']
 #remove all prints other than api response
 
 
@@ -110,7 +110,6 @@ def get_distance():
 # === Main Loop ===
 try:
     data2 = input()
-    print(1)
     while True:
         distance = get_distance()
         if distance is not None:
@@ -120,13 +119,9 @@ try:
                 # Wait for debounce_time before next detection
                 time.sleep(DEBOUNCE_TIME)
             elif ';2;' in data2:
-                print(data2)
-                print(2)
                 playtime = int(data2.split(';2;')[1].split(';;')[0])
                 limit = int(data2.split(';2;')[1].split(';;')[1])
                 if playtime >= int(limit):
-                    print(3)
-
                     set_all_pixels(255, 0, 0)
         else:
             # Optionally, turn off LEDs if no valid echo
