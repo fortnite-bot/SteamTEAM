@@ -4,7 +4,8 @@ import json
 import pandas as pd
 import numpy as np
 import psycopg2
-from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label
+from tkinter import Toplevel, Text, Label, messagebox
+import customtkinter as ctk
 from PIL import Image, ImageTk  # Voor afbeeldingen
 from beschrijvende import beschrijvende_statistieken
 from voorspellende import voorspellende_analyse
@@ -14,7 +15,6 @@ import time
 from datetime import datetime
 from steam_memory import steamid
 from pcproxy import send
-import re
 
 """
 ideas: 1. Playtime Alerts: gespeeld/ stop en drink water / stretch, check game time, 2. Game Auto-Close: Na X uur, Tussen de uren X en Y, remote access voor ouders (van afstand de game kunnen uitzetten). 3. Email disclosure to selected family members. 
@@ -93,7 +93,7 @@ def ai(input_message):
         print("An error occurred:", str(e))
 
 # Database configuratie
-with open("db.json", encoding="utf-8") as f:
+with open("../db.json", encoding="utf-8") as f:
     DB_CONFIG = json.load(f)
 
 # Functie om databaseverbinding te maken
@@ -134,7 +134,7 @@ begin_downtime = 0
 end_downtime = 0
 current_time = time.time()
 steam_id = int(steamid())
-print(steam_id)
+
 def readplay_time(): #api --> DB --> Gespeelde tijd binnen een dag
     global steam_id, current_time
     with open('steamkey.json', 'r') as file:
@@ -208,9 +208,8 @@ def readplay(): #Set playtime, limit, downtime, end_downtime, current_time from 
     else:
         return 0, 2, 0, 0, 0
     
-def set_limit():
+def set_limit(limit_entry):
     global steam_id
-    limit_entry = ''
     limit = limit_entry.get()
     conn = get_db_connection()
     if conn:
@@ -223,8 +222,7 @@ def set_limit():
         finally:
             conn.close()
             playtime, limit, begin_downtime, end_downtime, current_time = readplay()
-limit = int(limit) * 60
-send(';2;'+str(playtime)+';;'+str(limit))
+
 if game != '': 
     game = ai(game)[0]
 
@@ -255,6 +253,8 @@ n = ToastNotifier()
 
 def alerts():
     global playtime, limit, current_time, game, n
+    limit = int(limit) * 60
+    send(';2;'+str(playtime)+';;'+str(limit))
     if playtime > 0:
         if playtime < int(limit) - 2: 
             n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
@@ -342,74 +342,39 @@ def show_voorspellende_analyse():
     except Exception as e:
         print(f"Fout bij het tonen van voorspellende analyse: {e}")
 
-# GUI setup
-root = Tk()
-root.title("SteamTeam Dashboard")
-root.geometry("800x600")  # Increased width for better button placement
-root.configure(bg="#2c3e50")
 
-# Frame for layout
-frame = Frame(root, bg="#2c3e50", pady=20)
-frame.pack(fill="both", expand=True)
+# Instellen van het thema
+ctk.set_appearance_mode("dark")  # Kies tussen "light" en "dark"
+ctk.set_default_color_theme("blue")  # Kies een kleurthema (blauw, groen, etc.)
 
-center_frame = Frame(frame, bg="#2c3e50", pady=20)
-center_frame.pack(expand=True)
+def show_dashboard(root):
+    root.clear_widgets()
 
-# Title Label
-label_title = Label(center_frame, text="SteamTeam Dashboard", font=("Helvetica", 24, "bold"), bg="#2c3e50", fg="white", padx=10, pady=10)
-label_title.grid(row=0, column=0, columnspan=3, pady=(0, 40))
+    def create_dashboard_button(text, command):
+        button = ctk.CTkButton(root, text=text, font=("Helvetica", 20), fg_color="#4A90E2", text_color="white", hover_color="#003366", width=400, height=50, command=command)
+        button.pack(pady=20)
 
-# Buttons
+    title = ctk.CTkLabel(root, text="SteamTeam Dashboard", font=("Helvetica", 50), text_color="white")
+    title.pack(pady=100)
 
-btn_show_db = Button(
-    center_frame,
-    text="Bekijk Database Gegevens",
-    command=show_database_data,
-    bg="#f1c40f",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
+    create_dashboard_button("Bekijk Database Gegevens", lambda: messagebox.showinfo("Actie", "Database Gegevens Weergeven"))
+    create_dashboard_button("Beschrijvende Statistieken", lambda: messagebox.showinfo("Actie", "Beschrijvende Statistieken"))
+    create_dashboard_button("Voorspellende Analyse", lambda: messagebox.showinfo("Actie", "Voorspellende Analyse"))
 
-btn_beschrijvende = Button(
-    center_frame,
-    text="Beschrijvende Statistieken",
-    command=show_beschrijvende_statistieken,
-    bg="#1abc9c",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
+    limit_label = ctk.CTkLabel(root, text="Stel speeltijdlimiet in (in uren):", font=("Helvetica", 30), text_color="white")
+    limit_label.pack(pady=40)
 
-btn_voorspellende = Button(
-    center_frame,
-    text="Voorspellende Analyse",
-    command=show_voorspellende_analyse,
-    bg="#9b59b6",
-    fg="white",
-    font=("Helvetica", 14),
-    relief="solid",
-    bd=1,
-    padx=20,
-    pady=10
-)
+    limit_entry = ctk.CTkEntry(root, font=("Helvetica", 20), width=400, border_width=2, corner_radius=8)
+    limit_entry.pack(pady=30)
 
-# Arrange buttons in grid with padding
-btn_show_db.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-btn_beschrijvende.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
-btn_voorspellende.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
+    set_limit_button = ctk.CTkButton(root, text="Instellen", font=("Helvetica", 20, "bold"), fg_color="#4A90E2", text_color="white", hover_color="#003366", width=300, height=50, command=lambda: set_limit(limit_entry))
+    set_limit_button.pack(pady=50)
 
-# Make the columns expand equally
-center_frame.grid_columnconfigure(0, weight=1)
-center_frame.grid_columnconfigure(1, weight=1)
-center_frame.grid_columnconfigure(2, weight=1)
-
-# Main loop
-root.mainloop()
-
+def main():
+    root = ctk.CTk()
+    root.clear_widgets = lambda: [widget.destroy() for widget in root.winfo_children()]
+    root.geometry("1920x1080")
+    root.title("SteamTeam Dashboard")
+    show_dashboard(root)
+    root.mainloop()
+main()
