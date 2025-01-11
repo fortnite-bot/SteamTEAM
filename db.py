@@ -1,7 +1,7 @@
 import json
 import psycopg2
 import time
-from steam_memory import steamid
+from asteam_memory import steamid
 from pcproxy import send
 
 # Database configuratie

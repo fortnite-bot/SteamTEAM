@@ -17,6 +17,7 @@ from steam_memory import steamid
 from pcproxy import send
 from db import get_db_connection, fetch_data_from_db, readplay, readplay_time
 from game import close_game, ai
+
 playtime = 0  # get from api
 limit = 2  # get from db, default = 2, minimum = 0.5?
 game = ''
