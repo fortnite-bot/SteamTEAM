@@ -67,7 +67,9 @@ instance/
 
 # Scrapy stuff:
 .scrapy
-db.json
+*.png
+*.jpg 
+*.json 
 
 # Sphinx documentation
 docs/_build/

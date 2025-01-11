@@ -5,20 +5,26 @@ import network
 from time import sleep
 import urequests
 import time
+import json
+data = input()
 
-ssid = ''
-password = ''
+
+def readplay_time(steam_id):
+    with open('steamkey.json', 'r') as file:
+        data = json.load(file)
+        steam_key = data['steamkey']
+
+    # Make request to Steam API
+
+    url = f'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/?key={steam_key}&steamid={steam_id}'
+    response = urequests.get(url).json()
+    print(response)
+
+with open('network.json') as f:
+    config = json.load(f)
+    ssid = config[1]['ssid']
+    password = config[1]['password']
 #remove all prints other than api response
-
-def make_request(url):
-    try:
-        response = urequests.get(url)        
-        # Print first few lines of response content
-        print("\nFirst few lines of response:")
-        print(response.text[:200])
-        
-    except Exception as e:
-        print(f"Error occurred: {e}")
 
 
 def ConnectWiFi():
@@ -26,25 +32,24 @@ def ConnectWiFi():
     wlan.active(True)
     wlan.connect(ssid, password)
     
-    max_wait = 10
+    max_wait = 50
     while max_wait > 0:
         if wlan.status() < 0 or wlan.status() >= 3:
             break
         max_wait -= 1
         print('waiting for connection...')
+        print(wlan.status())
         sleep(1)
-    
+
     if wlan.status() != 3:
         raise RuntimeError('network connection failed')
     else:
         print('connected')
         status = wlan.ifconfig()
         print('ip address:', status[0])
-# URL to request
-        url = "http://www.example.com"
-
-        # Make the request
-        make_request(url)
+        print('[reset]')
+        if data == f'{data}': 
+            readplay_time(data)
 
         # Wait a bit before exiting
         time.sleep(5)
@@ -64,7 +69,7 @@ NUM_LEDS = 8         # Number of LEDs in the strip
 LED_PIN = 18          # GPIO4 (commonly used for NeoPixels)
 
 # Detection Parameters
-DETECTION_DISTANCE = 10    # Distance in centimeters to trigger the LEDs
+DETECTION_DISTANCE = 15    # Distance in centimeters to trigger the LEDs
 DEBOUNCE_TIME = 0        # Seconds to wait before re-detecting
 
 # === Initialize Hardware ===
@@ -104,20 +109,21 @@ def get_distance():
 
 # === Main Loop ===
 try:
+    data2 = input()
     while True:
         distance = get_distance()
         if distance is not None:
-            print("Distance:", distance, "cm")
             if distance < DETECTION_DISTANCE:
                 # Turn all LEDs to red
-                set_all_pixels(255, 0, 0)
+                set_all_pixels(0, 0, 0)
                 # Wait for debounce_time before next detection
                 time.sleep(DEBOUNCE_TIME)
-            else:
-                # Turn off LEDs if not within detection range
-                set_all_pixels(0, 0, 0)
+            elif ';2;' in data2:
+                playtime = int(data2.split(';2;')[1].split(';;')[0])
+                limit = int(data2.split(';2;')[1].split(';;')[1])
+                if playtime >= int(limit):
+                    set_all_pixels(255, 0, 0)
         else:
-            print("No echo received or out of range")
             # Optionally, turn off LEDs if no valid echo
             set_all_pixels(0, 0, 0)
 
@@ -127,5 +133,3 @@ try:
 except KeyboardInterrupt:
     # Gracefully handle a keyboard interrupt (Ctrl+C)
     set_all_pixels(0, 0, 0)
-    print("Program stopped")
-
