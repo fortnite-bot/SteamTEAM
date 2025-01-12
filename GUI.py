@@ -1,203 +1,251 @@
+import subprocess
 import os
 import json
 import pandas as pd
 import numpy as np
 import psycopg2
-from tkinter import Tk, Button, Toplevel, Text, Scrollbar, RIGHT, Y, VERTICAL, Frame, Label
+from tkinter import Toplevel, Text, Label, messagebox
+import customtkinter as ctk
 from PIL import Image, ImageTk  # Voor afbeeldingen
-from modules.beschrijvende import beschrijvende_statistieken
-from modules.voorspellende import voorspellende_analyse
+from voorspellende import voorspellende_analyse
+from win10toast import ToastNotifier
+import requests
+import time
+from datetime import datetime
+from steam_memory import steamid
+from pcproxy import send
+from db import get_db_connection, fetch_data_from_db, readplay, readplay_time, beschrijvende_statistieken
+import asyncio
+import threading
 
-# Database configuratie
-DB_CONFIG = {
-    "dbname": "SteamTeam",
-    "user": "postgres",
-    "password": "SteamTeam",
-    "host": "4.231.88.166",
-    "port": 5432,
-}
+playtime = 0  # get from api
+limit = 2  # get from db, default = 2, minimum = 0.5?
+begin_downtime = 0
+end_downtime = 0
+current_time = time.time()
+steam_id =  int(steamid())
+gemiddelde_speeltijd = 0
+median_speeltijd = 0
+readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
+send(';2;' + str(playtime) + ';;' + str(limit * 60))
 
+def set_limit(limit_entry):
+    global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
+    limit = limit_entry.get()
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("UPDATE public.\"User\" SET \"Playtime_limit\" = %s WHERE \"User\" = %s", (limit, str(steam_id)))
+                conn.commit()
+        except Exception as e:
+            print(f"Fout bij het updaten van de limiet: {e}")
+        finally:
+            conn.close()
+            playtime, limit, begin_downtime, end_downtime, current_time = readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
+
+
+def find_username():
+    global username
+    try:
+        result = subprocess.run(['powershell.exe', '-Command', 
+                                'Get-ItemProperty HKCU:\\Software\\Valve\\Steam\\ -EA 0 | Select-Object AutoLoginUser'], 
+                               capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            output_lines = result.stdout.strip().split('-\n')
+            if len(output_lines) > 1:
+                username = output_lines[1].strip()
+            else:
+                username = None
+            print(f"Found Steam username: {username}")
+            return username
+    
+    except Exception as e:
+        print(f"Error finding username: {e}")
+        return None
+    
+n = ToastNotifier()
+
+async def alerts():
+    global playtime, limit, current_time, n
+    while True:
+        limit_in_minutes = int(limit) * 60
+        if playtime > 0:
+            if playtime < int(limit_in_minutes) - 2:
+                n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
+            elif playtime <= int(limit_in_minutes) - 1:
+                n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
+            elif playtime >= int(limit_in_minutes):
+                n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
+        await asyncio.sleep(600)  # Wait for 10 minutes
+
+def start_alerts():
+    loop = asyncio.get_event_loop()
+    loop.create_task(alerts())
+
+start_alerts()
 # Dynamisch het bestandspad bepalen
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, 'Data', 'steam.json')
+DATA_PATH = fetch_data_from_db()
 README_PATH = os.path.join(BASE_DIR, 'README.md')
+username = find_username()
+# Instellen van het thema
+ctk.set_appearance_mode("dark")  # Kies tussen "light" en "dark"
+ctk.set_default_color_theme("blue")  # Kies een kleurthema (blauw, groen, etc.)
 
-# Controleer of de vereiste bestanden bestaan
-if not os.path.exists(DATA_PATH):
-    raise FileNotFoundError(f"Data bestand niet gevonden: {DATA_PATH}")
-if not os.path.exists(README_PATH):
-    raise FileNotFoundError(f"README.md bestand niet gevonden: {README_PATH}")
+# Kleuren voor het thema
+BG_COLOR = "#1F1E1E"  # Zwarte achtergrond voor het hoofdframe
+SIDEBAR_COLOR = "#292929"  # Donkergrijs voor de zijbalk
+CARD_COLOR = "#404040"  # Lichtere grijs voor de data-kaarten
+TEXT_COLOR = "white"  # Witte tekst
+ACCENT_COLOR = "#3A8DFF"  # Blauw voor invulelementen (zoals sliders en checkboxes)
+BTN_COLOR = "#666666"  # Grijze kleur voor de knoppen
+HOVER_BTN_COLOR = "#888888"  # Hover kleur voor de knoppen
 
-# Functie om databaseverbinding te maken
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        return conn
-    except Exception as e:
-        print(f"Fout bij het verbinden met de database: {e}")
-        return None
+def show_dashboard(root):
+    global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
+    root.clear_widgets()
 
-# Functie om de database voor te bereiden
-def initialize_database():
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                # Maak tabel als deze nog niet bestaat
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS steam_data (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT,
-                        price FLOAT,
-                        average_playtime INT,
-                        owners TEXT
-                    )
-                """)
-                conn.commit()
-                print("Database succesvol geïnitialiseerd.")
-        except Exception as e:
-            print(f"Fout bij het initialiseren van de database: {e}")
-        finally:
-            conn.close()
+    root.configure(bg=BG_COLOR)
 
-# Functie om gegevens naar de database te importeren
-def import_data_to_db():
-    conn = get_db_connection()
-    if conn:
-        try:
-            with open(DATA_PATH, 'r') as file:
-                data = json.load(file)
+    # Titelbalk bovenaan
+    title_frame = ctk.CTkFrame(root, height=80, corner_radius=0, fg_color=CARD_COLOR)
+    title_frame.pack(side="top", fill="x")
 
-            with conn.cursor() as cursor:
-                for game in data:
-                    cursor.execute("""
-                        INSERT INTO steam_data (name, price, average_playtime, owners)
-                        VALUES (%s, %s, %s, %s)
-                    """, (
-                        game.get('name', 'Onbekend'),
-                        game.get('price', 0.0),
-                        game.get('average_playtime', 0),
-                        game.get('owners', 'Onbekend')
-                    ))
-                conn.commit()
-                print("Data succesvol geïmporteerd in de database.")
-        except Exception as e:
-            print(f"Fout bij het importeren van data: {e}")
-        finally:
-            conn.close()
+    title_label = ctk.CTkLabel(
+        title_frame,
+        text="SteamTeam Dashboard",
+        font=("Helvetica", 36, "bold"),
+        text_color=ACCENT_COLOR,
+        bg_color=CARD_COLOR
+    )
+    title_label.pack(pady=20)
 
-# Functie om gegevens uit de database op te halen
-def fetch_data_from_db():
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT name, price, average_playtime, owners FROM steam_data")
-                rows = cursor.fetchall()
-                return rows
-        except Exception as e:
-            print(f"Fout bij het ophalen van data: {e}")
-            return []
-        finally:
-            conn.close()
+    # Zijbalk links
+    sidebar_frame = ctk.CTkFrame(root, width=250, fg_color=SIDEBAR_COLOR)
+    sidebar_frame.pack(side="left", fill="y")
 
-# Functie om databasegegevens te tonen
-def show_database_data():
-    data = fetch_data_from_db()
+    def sidebar_button(text, command):
+        return ctk.CTkButton(
+            sidebar_frame,
+            text=text,
+            font=("Helvetica", 14, "bold"),
+            fg_color=BTN_COLOR,
+            text_color=TEXT_COLOR,
+            hover_color=HOVER_BTN_COLOR,
+            width=200,
+            height=50,
+            corner_radius=10,
+            command=command
+        )
+    def refresh_username():
+        global username, steam_id
+        username = find_username()
 
-    db_window = Toplevel()
-    db_window.title("Steam Database Gegevens")
-    db_window.geometry("800x600")
-    db_window.configure(bg="#34495e")
+    # Navigatieknoppen in de zijbalk
+    sidebar_button("Home", lambda: messagebox.showinfo("Actie", "Home")).pack(pady=20, padx=15)
+    sidebar_button("Refresh Username", lambda: refresh_username()).pack(pady=20, padx=15)
+    sidebar_button("Refetch Playtime", lambda: readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)).pack(pady=20, padx=15)
+    
+    # Middenpaneel voor informatie (data-verdeling)
+    content_frame = ctk.CTkFrame(root, fg_color=BG_COLOR)
+    content_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
+    voorspellende_analyse()
+    # Data verdeeld over meerdere kaarten in een grid
+    data_grid = [
+        {
+            "title": "Gebruikersstatistieken",
+            "content": (
+                f"Gebruikersnaam: {find_username()}\n"
+                f"Mediaan speeltijd: {beschrijvende_statistieken().split(';;')[2]}\n"
+                f"Gemiddelde speeltijd: {beschrijvende_statistieken().split(';;')[1]}\n"
+                f"Playtime: {playtime}\n"
+                f"Playtime limiet (in uren): {limit}\n"
+                ),
+        },
+        {
+            "title": "Speeltijdlimiet Instellen",
+            "content": "Gebruik het veld hieronder om een speeltijdlimiet in te stellen.",
+            "interactive": True,
+        },
+        {
+            "title": "Voorspellende Analyse",
+            "content": "Gebruik AI om voorspellingen te maken over je gemiddelde speeltijd op basis van de prijs.",
+            "image_path": "foto.png"  # Replace with the actual path to your image
+        },
+    ]
+    for item in data_grid:
+        if "image_path" in item:
+            image = Image.open(item["image_path"])
+            image = ImageTk.PhotoImage(image)
+            item["image"] = image  # Store the image object in the item dictionary
+    for i, item in enumerate(data_grid):
+        card = ctk.CTkFrame(content_frame, width=400, height=250, fg_color=CARD_COLOR, corner_radius=15)
+        card.grid(row=i // 2, column=i % 2, padx=20, pady=20, sticky="nsew")
 
-    text = Text(db_window, wrap="word", bg="#2c3e50", fg="white", font=("Helvetica", 12), padx=10, pady=10)
-    if data:
-        for row in data:
-            text.insert("end", f"Naam: {row[0]}, Prijs: €{row[1]:.2f}, Speeltijd: {row[2]} min, Eigenaren: {row[3]}\n")
-    else:
-        text.insert("end", "Geen gegevens gevonden in de database.")
-    text.config(state="disabled")
-    text.pack(fill="both", expand=True)
+        # Titel van de kaart
+        card_title = ctk.CTkLabel(
+            card,
+            text=item["title"],
+            font=("Helvetica", 18, "bold"),
+            text_color=ACCENT_COLOR,
+            bg_color=CARD_COLOR
+        )
+        card_title.pack(anchor="w", pady=10, padx=15)
 
-# Functie om beschrijvende statistieken te tonen
-def show_beschrijvende_statistieken():
-    try:
-        beschrijvende_resultaten = beschrijvende_statistieken(DATA_PATH)
+        # Content van de kaart
+        card_content = ctk.CTkLabel(
+            card,
+            text=item["content"],
+            font=("Helvetica", 14),
+            justify="left",
+            text_color=TEXT_COLOR,
+            bg_color=CARD_COLOR
+        )
+        card_content.pack(anchor="w", pady=5, padx=15)
 
-        beschrijvende_window = Toplevel()
-        beschrijvende_window.title("Beschrijvende Statistieken")
-        beschrijvende_window.geometry("800x400")
-        beschrijvende_window.configure(bg="#1abc9c")
+        # Interactieve content voor speeltijdlimiet
+        if item.get("interactive"):
+            entry = ctk.CTkEntry(card, font=("Helvetica", 14), width=300, corner_radius=8)
+            entry.pack(pady=10)
 
-        text = Text(beschrijvende_window, wrap="word", bg="#2c3e50", fg="white", font=("Helvetica", 12), padx=10, pady=10)
-        text.insert("1.0", beschrijvende_resultaten)
-        text.config(state="disabled")
-        text.pack(fill="both", expand=True)
-    except Exception as e:
-        print(f"Fout bij het tonen van beschrijvende statistieken: {e}")
+            set_button = ctk.CTkButton(
+                card,
+                text="Instellen",
+                font=("Helvetica", 14, "bold"),
+                fg_color=BTN_COLOR,
+                text_color=TEXT_COLOR,
+                hover_color=HOVER_BTN_COLOR,
+                width=150,
+                height=40,
+                corner_radius=10,
+                command=lambda: set_limit(entry)
+            )
+            set_button.pack(pady=10)
 
-# Functie om voorspellende analyse te tonen
-def show_voorspellende_analyse():
-    try:
-        voorspellende_resultaten = voorspellende_analyse(DATA_PATH)
+        # Display image if available
+        if "image_path" in item:
+            image = Image.open(item["image_path"])
+            image = image.resize((884, 365))  # Resize the image
+            image = ImageTk.PhotoImage(image)
+            image_label = ctk.CTkLabel(card, image=image, text="", bg_color=CARD_COLOR)  # Set text to empty
+            image_label.image = image  # Keep a reference to avoid garbage collection
+            image_label.pack(pady=10)
 
-        voorspellende_window = Toplevel()
-        voorspellende_window.title("Voorspellende Analyse")
-        voorspellende_window.geometry("800x600")
-        voorspellende_window.configure(bg="#9b59b6")
+    # Responsief maken
+    content_frame.grid_columnconfigure(0, weight=1)
+    content_frame.grid_columnconfigure(1, weight=1)
+    content_frame.grid_rowconfigure(0, weight=1)
+    content_frame.grid_rowconfigure(1, weight=1)
 
-        # Toon de tekstuele resultaten
-        text = Text(voorspellende_window, wrap="word", bg="#2c3e50", fg="white",
-                    font=("Helvetica", 12), padx=10, pady=10, height=10)
-        text.insert("1.0", voorspellende_resultaten)
-        text.config(state="disabled")
-        text.pack(fill="x", padx=10, pady=10)
 
-        # Voeg de afbeelding toe
-        IMAGE_PATH = r"C:\Users\w_kar\PycharmProjects\SteamProject\voorspellende_analyse_plot.png"
-        img = Image.open(IMAGE_PATH)
-        img = img.resize((600, 300))  # Zonder ANTIALIAS
-        img = ImageTk.PhotoImage(img)
+def main():
+    root = ctk.CTk()
+    root.clear_widgets = lambda: [widget.destroy() for widget in root.winfo_children()]
+    root.geometry("1920x1080")
+    root.title("SteamTeam Dashboard")
+    show_dashboard(root)  # Start met de login scherm
+    root.mainloop()
 
-        img_label = Label(voorspellende_window, image=img, bg="#9b59b6")
-        img_label.image = img  # Houdt de referentie vast
-        img_label.pack(pady=20)
-
-    except Exception as e:
-        print(f"Fout bij het tonen van voorspellende analyse: {e}")
-
-# GUI setup
-root = Tk()
-root.title("SteamTeam Dashboard")
-root.geometry("700x600")
-root.configure(bg="#2c3e50")
-
-# Frame for layout
-frame = Frame(root, bg="#2c3e50", pady=20)
-frame.pack(fill="both", expand=True)
-
-center_frame = Frame(frame, bg="#2c3e50", pady=20)
-center_frame.pack(expand=True)
-
-# Title Label
-label_title = Label(center_frame, text="SteamTeam Dashboard", font=("Helvetica", 24, "bold"), bg="#2c3e50", fg="white", padx=10, pady=10)
-label_title.grid(row=0, column=0, columnspan=5, pady=20)
-
-# Buttons
-btn_import_data = Button(center_frame, text="Importeer Data naar Database", command=import_data_to_db, bg="#e74c3c", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_import_data.grid(row=1, column=0, padx=10, pady=10)
-
-btn_show_db = Button(center_frame, text="Bekijk Database Gegevens", command=show_database_data, bg="#f1c40f", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_show_db.grid(row=1, column=2, padx=10, pady=10)
-
-btn_beschrijvende = Button(center_frame, text="Beschrijvende Statistieken", command=show_beschrijvende_statistieken, bg="#1abc9c", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_beschrijvende.grid(row=2, column=0, padx=10, pady=10)
-
-btn_voorspellende = Button(center_frame, text="Voorspellende Analyse", command=show_voorspellende_analyse, bg="#9b59b6", fg="white", font=("Helvetica", 14), relief="solid", bd=1, padx=20, pady=10)
-btn_voorspellende.grid(row=2, column=2, padx=10, pady=10)
-
-# Database initialisatie
-initialize_database()
-
-# Main loop
-root.mainloop()
+main()
