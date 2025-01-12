@@ -15,7 +15,6 @@ def readplay_time(steam_id):
         steam_key = data['steamkey']
 
     # Make request to Steam API
-
     url = f'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/?key={steam_key}&steamid={steam_id}'
     response = urequests.get(url).json()
     print(response)
@@ -45,6 +44,7 @@ def ConnectWiFi():
         raise RuntimeError('network connection failed')
     else:
         print('connected')
+        print(data)
         status = wlan.ifconfig()
         print('ip address:', status[0])
         print('[reset]')
@@ -110,6 +110,7 @@ def get_distance():
 # === Main Loop ===
 try:
     data2 = input()
+    print (data2)
     while True:
         distance = get_distance()
         if distance is not None:
@@ -119,6 +120,7 @@ try:
                 # Wait for debounce_time before next detection
                 time.sleep(DEBOUNCE_TIME)
             elif ';2;' in data2:
+                print(data2)
                 playtime = int(data2.split(';2;')[1].split(';;')[0])
                 limit = int(data2.split(';2;')[1].split(';;')[1])
                 if playtime >= int(limit):
@@ -133,3 +135,4 @@ try:
 except KeyboardInterrupt:
     # Gracefully handle a keyboard interrupt (Ctrl+C)
     set_all_pixels(0, 0, 0)
+

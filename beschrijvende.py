@@ -1,10 +1,6 @@
-def beschrijvende_statistieken():
+def beschrijvende_statistieken(data):
     
     import json
-
-    # Open het Steam json bestand
-    with open('../steam.json', 'r') as f:
-        data = json.load(f)
 
     # Functie om het gemiddelde te berekenen
     def gemiddelde(data):

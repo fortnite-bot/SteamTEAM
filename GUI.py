@@ -25,6 +25,7 @@ end_downtime = 0
 current_time = time.time()
 steam_id =  int(steamid())
 readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
+send(';2;' + str(playtime) + ';;' + str(limit * 60))
 
 def set_limit(limit_entry):
     global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
@@ -68,7 +69,6 @@ async def alerts():
     global playtime, limit, current_time, n
     while True:
         limit_in_minutes = int(limit) * 60
-        send(';2;' + str(playtime) + ';;' + str(limit_in_minutes))
         if playtime > 0:
             if playtime < int(limit_in_minutes) - 2:
                 n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)

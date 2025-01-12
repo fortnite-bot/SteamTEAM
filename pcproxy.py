@@ -39,7 +39,7 @@ def send(message):
                     pico_output = pico_output.replace('\r\n', ' ')
                     if pico_output != '\n' and pico_output != '':
                         if '[reset]' in pico_output:
-                            os.system('cls')
+                            print(pico_output)
                         elif f'{message}' in pico_output:
                             pass
                         elif "{" in pico_output or "}" in pico_output:
