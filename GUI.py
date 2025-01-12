@@ -18,7 +18,7 @@ from pcproxy import send
 from db import get_db_connection, fetch_data_from_db, readplay, readplay_time
 import asyncio
 
-playtime = 3  # get from api
+playtime = 0  # get from api
 limit = 2  # get from db, default = 2, minimum = 0.5?
 begin_downtime = 0
 end_downtime = 0
