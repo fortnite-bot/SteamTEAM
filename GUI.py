@@ -23,7 +23,8 @@ limit = 2  # get from db, default = 2, minimum = 0.5?
 begin_downtime = 0
 end_downtime = 0
 current_time = time.time()
-steam_id = int(steamid())
+steam_id =  int(steamid())
+readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
 
 def set_limit(limit_entry):
     global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
@@ -144,7 +145,7 @@ def show_dashboard(root):
     # Middenpaneel voor informatie (data-verdeling)
     content_frame = ctk.CTkFrame(root, fg_color=BG_COLOR)
     content_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
-
+    voorspellende_analyse()
     # Data verdeeld over meerdere kaarten in een grid
     data_grid = [
         {
