@@ -7,7 +7,6 @@ import psycopg2
 from tkinter import Toplevel, Text, Label, messagebox
 import customtkinter as ctk
 from PIL import Image, ImageTk  # Voor afbeeldingen
-from beschrijvende import beschrijvende_statistieken
 from voorspellende import voorspellende_analyse
 from win10toast import ToastNotifier
 import requests
@@ -15,8 +14,9 @@ import time
 from datetime import datetime
 from steam_memory import steamid
 from pcproxy import send
-from db import get_db_connection, fetch_data_from_db, readplay, readplay_time
+from db import get_db_connection, fetch_data_from_db, readplay, readplay_time, beschrijvende_statistieken
 import asyncio
+import threading
 
 playtime = 0  # get from api
 limit = 2  # get from db, default = 2, minimum = 0.5?
@@ -24,6 +24,8 @@ begin_downtime = 0
 end_downtime = 0
 current_time = time.time()
 steam_id =  int(steamid())
+gemiddelde_speeltijd = 0
+median_speeltijd = 0
 readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
 send(';2;' + str(playtime) + ';;' + str(limit * 60))
 
@@ -77,7 +79,12 @@ async def alerts():
             elif playtime >= int(limit_in_minutes):
                 n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
         await asyncio.sleep(600)  # Wait for 10 minutes
-asyncio.run(alerts())
+
+def start_alerts():
+    loop = asyncio.get_event_loop()
+    loop.create_task(alerts())
+
+start_alerts()
 # Dynamisch het bestandspad bepalen
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = fetch_data_from_db()
@@ -140,7 +147,6 @@ def show_dashboard(root):
     sidebar_button("Home", lambda: messagebox.showinfo("Actie", "Home")).pack(pady=20, padx=15)
     sidebar_button("Refresh Username", lambda: refresh_username()).pack(pady=20, padx=15)
     sidebar_button("Refetch Playtime", lambda: readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)).pack(pady=20, padx=15)
-    sidebar_button("Reload Grafieken", lambda: messagebox.showinfo("Actie", "Instellingen")).pack(pady=20, padx=15)
     
     # Middenpaneel voor informatie (data-verdeling)
     content_frame = ctk.CTkFrame(root, fg_color=BG_COLOR)
@@ -152,8 +158,8 @@ def show_dashboard(root):
             "title": "Gebruikersstatistieken",
             "content": (
                 f"Gebruikersnaam: {find_username()}\n"
-                f"Mediaan speeltijd: {beschrijvende_statistieken().split(';')[3]}\n"
-                f"Gemiddelde speeltijd: {beschrijvende_statistieken().split(';')[2]}\n"
+                f"Mediaan speeltijd: {beschrijvende_statistieken().split(';;')[2]}\n"
+                f"Gemiddelde speeltijd: {beschrijvende_statistieken().split(';;')[1]}\n"
                 f"Playtime: {playtime}\n"
                 f"Playtime limiet (in uren): {limit}\n"
                 ),
@@ -162,10 +168,6 @@ def show_dashboard(root):
             "title": "Speeltijdlimiet Instellen",
             "content": "Gebruik het veld hieronder om een speeltijdlimiet in te stellen.",
             "interactive": True,
-        },
-        {
-            "title": "Grafieken & Analyse",
-            "content": "Hier komen grafieken en visualisaties van je speeltijd.",
         },
         {
             "title": "Voorspellende Analyse",
@@ -246,5 +248,4 @@ def main():
     show_dashboard(root)  # Start met de login scherm
     root.mainloop()
 
-if __name__ == "__main__":
-    main()
+main()

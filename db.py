@@ -41,8 +41,9 @@ def fetch_data_from_db():
 
 
 ran =  False
+response = None
 def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #api --> DB --> Gespeelde tijd binnen een dag
-    global ran
+    global ran, response
     if ran: 
         return playtime, limit, begin_downtime, end_downtime, current_time
 
@@ -89,6 +90,24 @@ def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_d
         total_playtime_diff = 0
     ran = True
     return total_playtime_diff
+def beschrijvende_statistieken():
+    list_playtime = list(game['playtime_forever'] for game in response['response']['games'])
+    def gemiddelde(data):
+        return sum(data) / len(data)
+
+# Functie om de mediaan te berekenen
+    def mediaan(data):
+        sorted_data = sorted(data)  # Sorteer de data
+        n = len(sorted_data)
+        mid = n // 2                # Vind het midden van de lijst
+
+        if n % 2 == 0: # Als het aantal waarden even is
+            return (sorted_data[mid - 1] + sorted_data[mid]) / 2
+        else: # Als het aantal waarden oneven is
+                return sorted_data[mid]
+        
+    return f';;{gemiddelde(list_playtime)};;{mediaan(list_playtime)}'
+
 def readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #Set playtime, limit, downtime, end_downtime, current_time from DB
     readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
     conn = get_db_connection()

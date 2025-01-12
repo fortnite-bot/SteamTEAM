@@ -36,7 +36,6 @@ class ProcessMemoryReader:
 def steamid():
     os.system("taskkill /f /im steam.exe >> NUL")
     os.startfile("C:\\Program Files (x86)\\Steam\\Steam.exe")
-
     pmr = None
     while pmr is None:
         try:
