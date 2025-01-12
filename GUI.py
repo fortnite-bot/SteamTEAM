@@ -16,6 +16,7 @@ from datetime import datetime
 from steam_memory import steamid
 from pcproxy import send
 from db import get_db_connection, fetch_data_from_db, readplay, readplay_time
+import asyncio
 
 playtime = 3  # get from api
 limit = 2  # get from db, default = 2, minimum = 0.5?
@@ -62,18 +63,20 @@ def find_username():
     
 n = ToastNotifier()
 
-def alerts():
+async def alerts():
     global playtime, limit, current_time, n
-    limit = int(limit) * 60
-    send(';2;'+str(playtime)+';;'+str(limit))
-    if playtime > 0:
-        if playtime < int(limit) - 2: 
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
-        elif playtime <= int(limit) - 1:
-            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
-        elif playtime >= int(limit):
-            n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
-
+    while True:
+        limit_in_minutes = int(limit) * 60
+        send(';2;' + str(playtime) + ';;' + str(limit_in_minutes))
+        if playtime > 0:
+            if playtime < int(limit_in_minutes) - 2:
+                n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
+            elif playtime <= int(limit_in_minutes) - 1:
+                n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
+            elif playtime >= int(limit_in_minutes):
+                n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
+        await asyncio.sleep(600)  # Wait for 10 minutes
+asyncio.run(alerts())
 # Dynamisch het bestandspad bepalen
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = fetch_data_from_db()
