@@ -1,7 +1,7 @@
 import json
 import psycopg2
 import time
-from asteam_memory import steamid
+from steam_memory import steamid
 from pcproxy import send
 
 # Database configuratie
@@ -40,12 +40,11 @@ def fetch_data_from_db():
         return []
 
 
-
-def readplay_time(): #api --> DB --> Gespeelde tijd binnen een dag
-    global steam_id, current_time
-    with open('steamkey.json', 'r') as file:
-        data = json.load(file)
-        steam_key = data['steamkey']
+ran =  False
+def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #api --> DB --> Gespeelde tijd binnen een dag
+    global ran
+    if ran: 
+        return playtime, limit, begin_downtime, end_downtime, current_time
 
     # Make request to Steam API
    
@@ -53,7 +52,7 @@ def readplay_time(): #api --> DB --> Gespeelde tijd binnen een dag
         steam_id = 0
     response = send(steam_id).replace("'", "\"").replace("\"s", "s")	
     response = json.loads(response, strict=False)
-
+    
 
     # Sum playtime_forever
     try:
@@ -88,9 +87,10 @@ def readplay_time(): #api --> DB --> Gespeelde tijd binnen een dag
         print(f"An error occurred: {e}")
         total_playtime = 0
         total_playtime_diff = 0
+    ran = True
     return total_playtime_diff
-def readplay(): #Set playtime, limit, downtime, end_downtime, current_time from DB
-    readplay_time()
+def readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #Set playtime, limit, downtime, end_downtime, current_time from DB
+    readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
     conn = get_db_connection()
     if conn:
         try:

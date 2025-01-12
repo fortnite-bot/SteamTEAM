@@ -1,58 +1,87 @@
+import subprocess
+import os
 import json
 import pandas as pd
 import numpy as np
 import psycopg2
-import os
-import subprocess
+from tkinter import Toplevel, Text, Label, messagebox
+import customtkinter as ctk
+from PIL import Image, ImageTk  # Voor afbeeldingen
+from beschrijvende import beschrijvende_statistieken
+from voorspellende import voorspellende_analyse
 from win10toast import ToastNotifier
 import requests
 import time
 from datetime import datetime
-import customtkinter as ctk
-from tkinter import messagebox
-from PIL import Image, ImageTk  # For images
-from beschrijvende import beschrijvende_statistieken
-from voorspellende import voorspellende_analyse
+from steam_memory import steamid
+from pcproxy import send
+from db import get_db_connection, fetch_data_from_db, readplay, readplay_time
 
+playtime = 3  # get from api
+limit = 2  # get from db, default = 2, minimum = 0.5?
+begin_downtime = 0
+end_downtime = 0
+current_time = time.time()
+steam_id = int(steamid())
 
-# Instellen van het thema
-ctk.set_appearance_mode("dark")  # Kies tussen "light" en "dark"
-ctk.set_default_color_theme("blue")  # Kies een kleurthema (blauw, groen, etc.)
+def set_limit(limit_entry):
+    global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
+    limit = limit_entry.get()
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("UPDATE public.\"User\" SET \"Playtime_limit\" = %s WHERE \"User\" = %s", (limit, str(steam_id)))
+                conn.commit()
+        except Exception as e:
+            print(f"Fout bij het updaten van de limiet: {e}")
+        finally:
+            conn.close()
+            playtime, limit, begin_downtime, end_downtime, current_time = readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)
 
-
-
-def set_playtime_limit(limit_entry):
-    try:
-        new_limit = float(limit_entry.get())  # Input in uren
-        if new_limit < 0.5:
-            raise ValueError("De speeltijdlimiet moet minimaal 0.5 uur zijn.")
-
-        global limit
-        limit = new_limit  # Stel de nieuwe limiet in
-
-        print(f"Speeltijdlimiet ingesteld op {limit} uur.")
-    except ValueError as e:
-        print(f"Fout bij het instellen van de limiet: {e}")
-
-def close_game(game):
-    os.system(f'taskkill /f /im {game}')
 
 def find_username():
     global username
     try:
-        result = subprocess.run(['powershell.exe', '-Command',
-                                 'Get-ItemProperty HKCU:\\Software\\Valve\\Steam\\ -EA 0 | Select-Object AutoLoginUser'],
-                                capture_output=True, text=True)
-
+        result = subprocess.run(['powershell.exe', '-Command', 
+                                'Get-ItemProperty HKCU:\\Software\\Valve\\Steam\\ -EA 0 | Select-Object AutoLoginUser'], 
+                               capture_output=True, text=True)
+        
         if result.returncode == 0:
-            username = result.stdout.strip().split('-\n')[1]
-            print(f"Gebruikersnaam van Steam gevonden: {username}")
+            output_lines = result.stdout.strip().split('-\n')
+            if len(output_lines) > 1:
+                username = output_lines[1].strip()
+            else:
+                username = None
+            print(f"Found Steam username: {username}")
             return username
-
+    
     except Exception as e:
-        print(f"Fout bij het vinden van de gebruikersnaam: {e}")
+        print(f"Error finding username: {e}")
         return None
+    
+n = ToastNotifier()
 
+def alerts():
+    global playtime, limit, current_time, n
+    limit = int(limit) * 60
+    send(';2;'+str(playtime)+';;'+str(limit))
+    if playtime > 0:
+        if playtime < int(limit) - 2: 
+            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 2 hours of playing left. Don't forget to drink water and stretch", duration=10)
+        elif playtime <= int(limit) - 1:
+            n.show_toast("Playtime reminder!", f"You have played for {playtime} hours. You have 1 hour of playing left. Don't forget to drink water and stretch", duration=10)
+        elif playtime >= int(limit):
+            n.show_toast("Playtime is over!", f"You have played for {playtime} hours. You have 0 hours of playing left. Time to drink water and stretch NOW!", duration=10)
+
+# Dynamisch het bestandspad bepalen
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = fetch_data_from_db()
+README_PATH = os.path.join(BASE_DIR, 'README.md')
+username = find_username()
+# Instellen van het thema
+ctk.set_appearance_mode("dark")  # Kies tussen "light" en "dark"
+ctk.set_default_color_theme("blue")  # Kies een kleurthema (blauw, groen, etc.)
 
 # Kleuren voor het thema
 BG_COLOR = "#1F1E1E"  # Zwarte achtergrond voor het hoofdframe
@@ -63,29 +92,8 @@ ACCENT_COLOR = "#3A8DFF"  # Blauw voor invulelementen (zoals sliders en checkbox
 BTN_COLOR = "#666666"  # Grijze kleur voor de knoppen
 HOVER_BTN_COLOR = "#888888"  # Hover kleur voor de knoppen
 
-def show_login_screen(root):
-    root.clear_widgets()
-
-    def validate_login():
-        steam_id = entry.get()
-        if steam_id == "12345678":  # Je kunt hier je eigen login-logic implementeren
-            show_dashboard(root)
-        else:
-            messagebox.showerror("Fout", "Ongeldige Steam ID of gebruikersnaam.")
-
-    title = ctk.CTkLabel(root, text="Welkom bij het SteamTeam!", font=("Helvetica", 50), text_color="white")
-    title.pack(pady=100)
-
-    instruction = ctk.CTkLabel(root, text="Voer je Steam ID of gebruikersnaam in:", font=("Helvetica", 30), text_color="white")
-    instruction.pack(pady=40)
-
-    entry = ctk.CTkEntry(root, font=("Helvetica", 20), width=400, border_width=2, corner_radius=8)
-    entry.pack(pady=30)
-
-    login_button = ctk.CTkButton(root, text="Login", font=("Helvetica", 20, "bold"), fg_color="#4A90E2", text_color="white", hover_color="#003366", width=300, height=50, command=validate_login)
-    login_button.pack(pady=50)
-
 def show_dashboard(root):
+    global steam_id, current_time, ran, playtime, limit, begin_downtime, end_downtime
     root.clear_widgets()
 
     root.configure(bg=BG_COLOR)
@@ -120,13 +128,16 @@ def show_dashboard(root):
             corner_radius=10,
             command=command
         )
+    def refresh_username():
+        global username, steam_id
+        username = find_username()
 
     # Navigatieknoppen in de zijbalk
     sidebar_button("Home", lambda: messagebox.showinfo("Actie", "Home")).pack(pady=20, padx=15)
-    sidebar_button("Statistieken", lambda: messagebox.showinfo("Actie", "Statistieken")).pack(pady=20, padx=15)
-    sidebar_button("Analyse", lambda: messagebox.showinfo("Actie", "Analyse")).pack(pady=20, padx=15)
-    sidebar_button("Instellingen", lambda: messagebox.showinfo("Actie", "Instellingen")).pack(pady=20, padx=15)
-
+    sidebar_button("Refresh Username", lambda: refresh_username()).pack(pady=20, padx=15)
+    sidebar_button("Refetch Playtime", lambda: readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)).pack(pady=20, padx=15)
+    sidebar_button("Reload Grafieken", lambda: messagebox.showinfo("Actie", "Instellingen")).pack(pady=20, padx=15)
+    
     # Middenpaneel voor informatie (data-verdeling)
     content_frame = ctk.CTkFrame(root, fg_color=BG_COLOR)
     content_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
@@ -136,12 +147,12 @@ def show_dashboard(root):
         {
             "title": "Gebruikersstatistieken",
             "content": (
-                "Gebruikersnaam: [Placeholder]\n"
-                "Status: Offline\n"
-                "Mediaan speeltijd: N/A\n"
-                "Gemiddelde speeltijd: N/A\n"
-                "Laatste 2 weken speeltijd: N/A"
-            ),
+                f"Gebruikersnaam: {find_username()}\n"
+                f"Mediaan speeltijd: {beschrijvende_statistieken().split(';')[3]}\n"
+                f"Gemiddelde speeltijd: {beschrijvende_statistieken().split(';')[2]}\n"
+                f"Playtime: {playtime}\n"
+                f"Playtime limiet (in uren): {limit}\n"
+                ),
         },
         {
             "title": "Speeltijdlimiet Instellen",
@@ -154,10 +165,15 @@ def show_dashboard(root):
         },
         {
             "title": "Voorspellende Analyse",
-            "content": "Gebruik AI om voorspellingen te maken over je speeltijd en gedrag.",
+            "content": "Gebruik AI om voorspellingen te maken over je gemiddelde speeltijd op basis van de prijs.",
+            "image_path": "foto.png"  # Replace with the actual path to your image
         },
     ]
-
+    for item in data_grid:
+        if "image_path" in item:
+            image = Image.open(item["image_path"])
+            image = ImageTk.PhotoImage(image)
+            item["image"] = image  # Store the image object in the item dictionary
     for i, item in enumerate(data_grid):
         card = ctk.CTkFrame(content_frame, width=400, height=250, fg_color=CARD_COLOR, corner_radius=15)
         card.grid(row=i // 2, column=i % 2, padx=20, pady=20, sticky="nsew")
@@ -198,9 +214,18 @@ def show_dashboard(root):
                 width=150,
                 height=40,
                 corner_radius=10,
-                command=lambda: set_playtime_limit(entry)
+                command=lambda: set_limit(entry)
             )
             set_button.pack(pady=10)
+
+        # Display image if available
+        if "image_path" in item:
+            image = Image.open(item["image_path"])
+            image = image.resize((884, 365))  # Resize the image
+            image = ImageTk.PhotoImage(image)
+            image_label = ctk.CTkLabel(card, image=image, text="", bg_color=CARD_COLOR)  # Set text to empty
+            image_label.image = image  # Keep a reference to avoid garbage collection
+            image_label.pack(pady=10)
 
     # Responsief maken
     content_frame.grid_columnconfigure(0, weight=1)
@@ -208,21 +233,13 @@ def show_dashboard(root):
     content_frame.grid_rowconfigure(0, weight=1)
     content_frame.grid_rowconfigure(1, weight=1)
 
-def set_playtime_limit(entry):
-    try:
-        new_limit = float(entry.get())  # Input in uren
-        if new_limit < 0.5:
-            raise ValueError("De speeltijdlimiet moet minimaal 0.5 uur zijn.")
-        print(f"Nieuwe speeltijdlimiet ingesteld op: {new_limit} uur.")
-    except ValueError as e:
-        messagebox.showerror("Fout", str(e))
 
 def main():
     root = ctk.CTk()
     root.clear_widgets = lambda: [widget.destroy() for widget in root.winfo_children()]
     root.geometry("1920x1080")
     root.title("SteamTeam Dashboard")
-    show_login_screen(root)  # Start met de login scherm
+    show_dashboard(root)  # Start met de login scherm
     root.mainloop()
 
 if __name__ == "__main__":
