@@ -11,8 +11,7 @@ from datetime import datetime
 import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image, ImageTk  # For images
-from beschrijvende import beschrijvende_statistieken
-from voorspellende import voorspellende_analyse
+
 
 
 # Instellen van het thema
