@@ -52,5 +52,4 @@ def steamid():
     first_sig_address = sig_addresses[0] - 17
     found_string = pmr.pymem_handler.read_bytes(first_sig_address, 17).decode('utf-8', errors='ignore')
     os.system("taskkill /f /im steam.exe >> NUL")
-    return 76561198885287385
     return found_string
