@@ -36,6 +36,8 @@ class ProcessMemoryReader:
 def steamid():
     os.system("taskkill /f /im steam.exe >> NUL")
     os.startfile("C:\\Program Files (x86)\\Steam\\Steam.exe")
+    os.system("taskkill /f /im steam.exe >> NUL")
+    os.startfile("C:\\Program Files (x86)\\Steam\\Steam.exe")
     pmr = None
     while pmr is None:
         try:
@@ -48,7 +50,7 @@ def steamid():
     sig_addresses = pmr.signature_scan(bytes.fromhex("22 0a 09 7b 0a 09 09 22 41 63 63 6f 75 6e 74 4e 61 6d 65 22 09 09"), progress_bar)
     while not sig_addresses:
         sig_addresses = pmr.signature_scan(bytes.fromhex("22 0a 09 7b 0a 09 09 22 41 63 63 6f 75 6e 74 4e 61 6d 65 22 09 09"), progress_bar)
-
+    
     first_sig_address = sig_addresses[0] - 17
     found_string = pmr.pymem_handler.read_bytes(first_sig_address, 17).decode('utf-8', errors='ignore')
     os.system("taskkill /f /im steam.exe >> NUL")
