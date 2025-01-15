@@ -3,6 +3,7 @@ import psycopg2
 import time
 from steam_memory import steamid
 from pcproxy import send
+import re
 
 # Database configuratie
 with open("../db.json", encoding="utf-8") as f:
@@ -42,6 +43,9 @@ def fetch_data_from_db():
 
 ran =  False
 response = None
+def clean_json(json_str):
+    json_str = json_str.replace('\'', "\"")
+    return json.loads(re.sub(r'([A-Za-z0-9]+)"([A-Za-z0-9]+)', lambda m: m.group(1) + m.group(2), json_str).replace('True', 'true').replace('False', 'false'), strict=False)
 def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #api --> DB --> Gespeelde tijd binnen een dag
     global ran, response
     if ran: 
@@ -51,13 +55,36 @@ def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_d
    
     if not isinstance(steam_id, int) or steam_id <= 0:
         steam_id = 0
-    response = send(steam_id).replace("'", "\"").replace("\"s", "s")	
-    response = json.loads(response, strict=False)
+    responses = send(steam_id).replace("'", "\"")
+    response_parts = responses.split(';;;')
+    import os; os.system("cls")
+    response_parts[2] = str(response_parts[2]).replace(' ()', '')
+    
+    
+    play_time_json = clean_json(response_parts[0])
+    player_summary_json = clean_json(response_parts[1])
+    friend_list_json = clean_json(response_parts[4])
+    owned_games_json = clean_json(response_parts[2])
+    top_games = response_parts[3]
+    online_status = response_parts[5]
+    top_games = owned_games_json[:3]
+    result = []
+    for i, game in enumerate(top_games, start=1):
+        result.append(f"{i}. {game['name']} - {game['playtime_forever'] // 60} uren gespeeld")
+    top_games = result   
+    response = {
+        'play_time': play_time_json,
+        'player_summary': player_summary_json,
+        'friend_list': friend_list_json,
+        'owned_games': owned_games_json,
+        'top_games': top_games,
+        'online_status': online_status
+        }
     
 
     # Sum playtime_forever
     try:
-        total_playtime = sum(game['playtime_forever'] for game in response['response']['games'])
+        total_playtime = sum(game['playtime_forever'] for game in response['play_time']['response']['games'])
         # Get the current playtime from the database for the specific user
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -91,10 +118,13 @@ def readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_d
     ran = True
     return total_playtime_diff
 def beschrijvende_statistieken():
-    list_playtime = list(game['playtime_forever'] for game in response['response']['games'])
+    list_playtime = list(game['playtime_forever'] for game in response['play_time']['response']['games'])
     def gemiddelde(data):
         return sum(data) / len(data)
-
+    
+    def friendslist():
+        if response: 
+            return response
 # Functie om de mediaan te berekenen
     def mediaan(data):
         sorted_data = sorted(data)  # Sorteer de data
@@ -106,7 +136,7 @@ def beschrijvende_statistieken():
         else: # Als het aantal waarden oneven is
                 return sorted_data[mid]
         
-    return f';;{gemiddelde(list_playtime)};;{mediaan(list_playtime)}'
+    return f';;{gemiddelde(list_playtime)};;{mediaan(list_playtime)};;{friendslist()}'
 
 def readplay(steam_id, current_time, playtime, limit, begin_downtime, end_downtime): #Set playtime, limit, downtime, end_downtime, current_time from DB
     readplay_time(steam_id, current_time, playtime, limit, begin_downtime, end_downtime)

@@ -2,31 +2,119 @@ import machine
 import time
 import neopixel
 import network
-from time import sleep
 import urequests
-import time
 import json
-data = input()
+import uasyncio as asyncio
+import _thread
+import datetime
 
+# Initialize command list
+commands = []
 
-def readplay_time(steam_id):
-    with open('steamkey.json', 'r') as file:
-        data = json.load(file)
-        steam_key = data['steamkey']
+# Initialize hardware
+TRIG_PIN = 17     # GPIO5
+ECHO_PIN = 16    # GPIO18
+NUM_LEDS = 8         # Number of LEDs in the strip
+LED_PIN = 18          # GPIO4 (commonly used for NeoPixels)
+DETECTION_DISTANCE = 15    # Distance in centimeters to trigger the LEDs
+DEBOUNCE_TIME = 0        # Seconds to wait before re-detecting
 
-    # Make request to Steam API
-    url = f'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/?key={steam_key}&steamid={steam_id}'
-    response = urequests.get(url).json()
-    print(response)
+trig = machine.Pin(TRIG_PIN, machine.Pin.OUT)
+echo = machine.Pin(ECHO_PIN, machine.Pin.IN)
+np = neopixel.NeoPixel(machine.Pin(LED_PIN), NUM_LEDS)
+with open('steamkey.json', 'r') as file:
+    data = json.load(file)
+    steam_key = data['steamkey']
+# Function to read play time from Steam API
+def steam_api_functions(steam_id):
+    global steam_key
 
-with open('network.json') as f:
-    config = json.load(f)
-    ssid = config[1]['ssid']
-    password = config[1]['password']
-#remove all prints other than api response
+    def play_time(steam_id):
+        url = f'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/?key={steam_key}&steamid={steam_id}'
+        response = urequests.get(url).json()
+        return(response)
 
+    def player_summary(steam_id):
+        url = f'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/'
+        params = {
+            'key': steam_key,
+            'steamids': steam_id
+        }
+        response = urequests.get(url + '?' + '&'.join([f'{k}={v}' for k, v in params.items()]))
+        return response.json()
+    game_count = 0 
+    def owned_games():
+        url = f'https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/'
+        params = {
+            'key': steam_key,
+            'steamid': steam_id,
+            'include_appinfo': True,
+            'format': 'json'
+        }
+        print(url + '?' + '&'.join([f'{k}={v}' for k, v in params.items()]))
+        response = urequests.get(url + '?' + '&'.join([f'{k}={v}' for k, v in params.items()])).json()
+        response = json.loads(response)
+        if 'response' in response and 'games' in response['response']:
+            played_games = response['response']['games']
+            global game_count 
+            game_count = response['response']['game_count']
+            return played_games
+        return []
 
+    def top_games(top_n=5):
+        played_games = owned_games()
+        top_games = played_games[:top_n]
+        result = []
+        for i, game in enumerate(top_games, start=1):
+            result.append(f"{i}. {game['name']} - {game['playtime_forever'] // 60} uren gespeeld")
+        return result
+    
+    def friend_list(steam_id):
+        global game_count
+        url = f'https://api.steampowered.com/ISteamUser/GetFriendList/v0001/'
+        params = {
+            'key': steam_key,
+            'steamid': steam_id,
+            'relationship': 'friend'
+        }
+        response = urequests.get(url + '?' + '&'.join([f'{k}={v}' for k, v in params.items()])).json()
+        if 'friendslist' in response and 'friends' in response['friendslist']:
+            friends = response['friendslist']['friends'][:5]  # Limit to max 5 friends
+            friend_summaries = []
+            for friend in friends:
+                friend_data = player_summary(friend['steamid'])['response']['players'][0]
+                personaname = friend_data['personaname']
+                realname = friend_data.get('realname', '')
+                loccountrycode = friend_data.get('loccountrycode', '')
+                personastate = friend_data['personastate']
+                if 'response' in response and 'game_count' in response['response']:
+                    game_count = response['response']['game_count']
+                summary_parts = [personaname]
+                if realname:
+                    summary_parts.append(f"({realname})")
+                if loccountrycode:
+                    summary_parts.append(f"({loccountrycode})")
+                summary_parts.append(f"- {'Online' if personastate != 0 else 'Offline'}")
+                summary_parts.append(f"- Games count: {game_count}")
+                summary = ' '.join(summary_parts)
+                friend_summaries.append(summary)
+            return friend_summaries
+        return []
+    
+
+    def online_status(steam_id):
+        user_data = player_summary(steam_id)['response']['players'][0]
+        return user_data['personastate'] != 0
+
+    print(f"{play_time(steam_id)};;;{player_summary(steam_id)};;;{owned_games()};;;{top_games()};;;{friend_list(steam_id)};;;{online_status(steam_id)};;;EXIT//")
+
+# Function to connect to WiFi
 def ConnectWiFi():
+    with open('network.json') as f:
+        config = json.load(f)
+        ssid = config[1]['ssid']
+        password = config[1]['password']
+
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(ssid, password)
@@ -37,49 +125,16 @@ def ConnectWiFi():
             break
         max_wait -= 1
         print('waiting for connection...')
-        print(wlan.status())
-        sleep(1)
+        time.sleep(1)
 
     if wlan.status() != 3:
         raise RuntimeError('network connection failed')
     else:
         print('connected')
-        print(data)
         status = wlan.ifconfig()
         print('ip address:', status[0])
-        print('[reset]')
-        if data == f'{data}': 
-            readplay_time(data)
-
-        # Wait a bit before exiting
-        time.sleep(5)
 
     return wlan
-
-wifi = ConnectWiFi()
-
-# === Configuration ===
-
-# HC-SR04 Pins
-TRIG_PIN = 17     # GPIO5
-ECHO_PIN = 16    # GPIO18
-
-# WS2812 LED Setup
-NUM_LEDS = 8         # Number of LEDs in the strip
-LED_PIN = 18          # GPIO4 (commonly used for NeoPixels)
-
-# Detection Parameters
-DETECTION_DISTANCE = 15    # Distance in centimeters to trigger the LEDs
-DEBOUNCE_TIME = 0        # Seconds to wait before re-detecting
-
-# === Initialize Hardware ===
-
-# Initialize Trig and Echo pins
-trig = machine.Pin(TRIG_PIN, machine.Pin.OUT)
-echo = machine.Pin(ECHO_PIN, machine.Pin.IN)
-
-# Initialize NeoPixel
-np = neopixel.NeoPixel(machine.Pin(LED_PIN), NUM_LEDS)
 
 # Function to set all LEDs to a specific color
 def set_all_pixels(r, g, b):
@@ -107,32 +162,52 @@ def get_distance():
     distance = (duration * 0.034) / 2
     return distance
 
-# === Main Loop ===
-try:
-    data2 = input()
+# Function to read input commands
+def read_input():
+    global commands
+    while True:
+        data = input()
+        commands.append(data)
+
+# Function to process commands
+def process_commands():
+    global commands
+    while commands:
+        command = commands.pop(0)
+        if command.isdigit():
+            steam_id = int(command)
+            steam_api_functions(steam_id)
+        elif command.startswith(';2;'):
+            command = command.replace(';2;', '')
+            try:
+                playtime, limit = map(int, command.split(';;'))
+                print(';;;2;;;')
+                if playtime >= limit:
+                    set_all_pixels(255, 0, 0)
+            except ValueError:
+                print(f"Invalid command format: {command}")
+        else:
+            print(f"Unknown command: {command}")
+
+# Main loop
+async def main_loop():
     while True:
         distance = get_distance()
-        if distance is not None:
-            if distance < DETECTION_DISTANCE:
-                # Turn all LEDs to red
-                set_all_pixels(0, 0, 0)
-                # Wait for debounce_time before next detection
-                time.sleep(DEBOUNCE_TIME)
-            elif ';2;' in data2:
-                playtime = int(data2.split(';2;')[1].split(';;')[0])
-                limit = int(data2.split(';2;')[1].split(';;')[1])
-                print(';;;2;;;')
-                if playtime >= int(limit):
-                    set_all_pixels(255, 0, 0)
-        else:
-            # Optionally, turn off LEDs if no valid echo
+        if distance is not None and distance < DETECTION_DISTANCE:
             set_all_pixels(0, 0, 0)
+            time.sleep(DEBOUNCE_TIME)
+        process_commands()
+        await asyncio.sleep(0.5)
 
-        # Short delay to prevent excessive looping
-        time.sleep(0.5)
+# Connect to WiFi
+wifi = ConnectWiFi()
 
-except KeyboardInterrupt:
-    # Gracefully handle a keyboard interrupt (Ctrl+C)
-    set_all_pixels(0, 0, 0)
+# Start the input thread
+_thread.start_new_thread(read_input, ())
+
+# Run the async event loop
+loop = asyncio.get_event_loop()
+loop.create_task(main_loop())
+loop.run_forever()
 
 

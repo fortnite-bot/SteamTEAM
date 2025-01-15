@@ -40,14 +40,18 @@ def send(message):
                     if pico_output != '\n' and pico_output != '':
                         if '[reset]' in pico_output:
                             os.system('cls')
-                        elif f'{message}' in pico_output:
-                            pass
-                        elif "{" in pico_output or "}" in pico_output:
-                            full_output += pico_output
-                            if "}}" in pico_output:
+                        elif "{" in pico_output:
+                                full_output += pico_output
+                                while "EXIT//" not in pico_output:
+                                    pico_output = read_serial(serial_port)
+                                    pico_output = pico_output.replace('\r\n', ' ')
+                                    full_output += pico_output
+                                full_output = full_output.replace("EXIT//", "")
                                 return full_output
                         elif ';;;2;;;' in pico_output:
-                            return 'a'
+                            return pico_output
+                        elif f'{message}' in pico_output:
+                            pass
                         else:
                             print(pico_output)
                             
@@ -56,6 +60,7 @@ def send(message):
 
         except KeyboardInterrupt:
             print("[INFO] Ctrl+C detected. Terminating.")
+            pass
         finally:
             # Close connection to Pico
             print(pico_output)
